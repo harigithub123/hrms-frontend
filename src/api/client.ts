@@ -1,4 +1,5 @@
 import type { AuthResponse } from '../types/auth'
+import type { Department, Designation, Employee, DepartmentRequest, DesignationRequest, EmployeeRequest } from '../types/org'
 
 const API_BASE = '/api'
 
@@ -91,4 +92,36 @@ export async function getUsersMe(): Promise<AuthResponse['user']> {
   const result = await apiFetch<AuthResponse['user']>('/users/me')
   if (!result.ok) throw new Error(result.error.status === 401 ? 'Unauthorized' : 'Request failed')
   return result.data
+}
+
+async function handleOk<T>(result: { ok: true; data: T } | { ok: false; error: Response }): Promise<T> {
+  if (!result.ok) {
+    const err = await result.error.json().catch(() => ({})) as { message?: string }
+    throw new Error(err.message ?? 'Request failed')
+  }
+  return result.data
+}
+
+export const departmentsApi = {
+  list: () => apiFetch<Department[]>('/departments').then(handleOk),
+  get: (id: number) => apiFetch<Department>(`/departments/${id}`).then(handleOk),
+  create: (body: DepartmentRequest) => apiFetch<Department>('/departments', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+  update: (id: number, body: DepartmentRequest) => apiFetch<Department>(`/departments/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
+  delete: (id: number) => apiFetch<void>(`/departments/${id}`, { method: 'DELETE' }).then(handleOk),
+}
+
+export const designationsApi = {
+  list: () => apiFetch<Designation[]>('/designations').then(handleOk),
+  get: (id: number) => apiFetch<Designation>(`/designations/${id}`).then(handleOk),
+  create: (body: DesignationRequest) => apiFetch<Designation>('/designations', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+  update: (id: number, body: DesignationRequest) => apiFetch<Designation>(`/designations/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
+  delete: (id: number) => apiFetch<void>(`/designations/${id}`, { method: 'DELETE' }).then(handleOk),
+}
+
+export const employeesApi = {
+  list: () => apiFetch<Employee[]>('/employees').then(handleOk),
+  get: (id: number) => apiFetch<Employee>(`/employees/${id}`).then(handleOk),
+  create: (body: EmployeeRequest) => apiFetch<Employee>('/employees', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+  update: (id: number, body: EmployeeRequest) => apiFetch<Employee>(`/employees/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
+  delete: (id: number) => apiFetch<void>(`/employees/${id}`, { method: 'DELETE' }).then(handleOk),
 }

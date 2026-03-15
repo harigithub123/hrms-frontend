@@ -1,4 +1,4 @@
-import { Box, Container } from '@mui/material'
+import { Box } from '@mui/material'
 import type { ReactNode } from 'react'
 import { AppTypography } from './AppTypography'
 
@@ -10,13 +10,15 @@ interface PageLayoutProps {
 
 export function PageLayout({ title, actions, children }: PageLayoutProps) {
   return (
-    <Container maxWidth="md">
+    <Box sx={{ maxWidth: 960, mx: 0 }}>
       <Box
         sx={{
-          py: 2,
+          py: 1.5,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
         }}
       >
         <AppTypography variant="h4" component="h1">
@@ -25,6 +27,6 @@ export function PageLayout({ title, actions, children }: PageLayoutProps) {
         {actions}
       </Box>
       <Box sx={{ mt: 1.5 }}>{children}</Box>
-    </Container>
+    </Box>
   )
 }

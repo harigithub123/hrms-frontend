@@ -5,6 +5,10 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import AdminPage from './pages/AdminPage'
 import HrPage from './pages/HrPage'
+import DepartmentsPage from './pages/DepartmentsPage'
+import DesignationsPage from './pages/DesignationsPage'
+import EmployeesPage from './pages/EmployeesPage'
+import AppShell from './components/layout/AppShell'
 import './App.css'
 
 function App() {
@@ -14,29 +18,19 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route
-            path="/"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <AppShell />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requiredRoles={['ADMIN']}>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/hr"
-            element={
-              <ProtectedRoute requiredRoles={['HR', 'ADMIN']}>
-                <HrPage />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/hr" element={<HrPage />} />
+            <Route path="/departments" element={<DepartmentsPage />} />
+            <Route path="/designations" element={<DesignationsPage />} />
+            <Route path="/employees" element={<EmployeesPage />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
