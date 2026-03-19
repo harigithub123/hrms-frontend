@@ -1,7 +1,21 @@
-import { Drawer, List, ListItemButton, ListItemText, Box, Divider } from '@mui/material'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import {
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemText,
+  Box,
+  Divider,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Avatar,
+  Menu,
+  MenuItem,
+  Typography,
+} from '@mui/material'
+import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { AppButton } from '../ui'
 
 const DRAWER_WIDTH = 240
 
@@ -13,19 +27,48 @@ type MenuItem = {
 
 const MENU: MenuItem[] = [
   { label: 'Dashboard', path: '/' },
+  { label: 'Leave', path: '/leave' },
+  { label: 'Leave approvals', path: '/leave/approvals' },
+  { label: 'Attendance', path: '/attendance' },
+  { label: 'My payslips', path: '/payslips' },
   { label: 'HR', path: '/hr', roles: ['HR', 'ADMIN'] },
   { label: 'Departments', path: '/departments', roles: ['HR', 'ADMIN'] },
   { label: 'Designations', path: '/designations', roles: ['HR', 'ADMIN'] },
   { label: 'Employees', path: '/employees', roles: ['HR', 'ADMIN'] },
+  { label: 'Leave admin', path: '/leave/admin', roles: ['HR', 'ADMIN'] },
+  { label: 'Payroll', path: '/payroll', roles: ['HR', 'ADMIN'] },
+  { label: 'User ↔ Employee', path: '/users/link', roles: ['HR', 'ADMIN'] },
   { label: 'Admin', path: '/admin', roles: ['ADMIN'] },
 ]
 
 export default function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { hasRole, logout } = useAuth()
+  const { user, hasRole, logout } = useAuth()
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const open = Boolean(anchorEl)
 
-  const items = MENU.filter((i) => !i.roles || i.roles.some((r) => hasRole(r)))
+  const hasReportees = (user?.directReportCount ?? 0) > 0
+  const canSeeApprovals = hasRole('HR') || hasRole('ADMIN') || hasReportees
+
+  const items = MENU.filter((i) => {
+    if (i.path === '/leave/approvals') return canSeeApprovals
+    if (!i.roles) return true
+    return i.roles.some((r) => hasRole(r))
+  })
+
+  const handleAvatarClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget)
+  }
+  const handleMenuClose = () => setAnchorEl(null)
+  const handleLogout = () => {
+    handleMenuClose()
+    logout()
+  }
+
+  const initials = user?.username
+    ? user.username.slice(0, 2).toUpperCase()
+    : '?'
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -40,11 +83,10 @@ export default function AppShell() {
           },
         }}
       >
-        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ fontWeight: 700, fontSize: 14 }}>HRMS</Box>
-          <AppButton variant="outlined" onClick={logout}>
-            Logout
-          </AppButton>
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, fontSize: 14 }}>
+            HRMS
+          </Typography>
         </Box>
         <Divider />
         <List dense sx={{ py: 0.5 }}>
@@ -63,25 +105,47 @@ export default function AppShell() {
         </List>
       </Drawer>
 
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 2,
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Toolbar disableGutters sx={{ px: 2, minHeight: { xs: 48, sm: 48 } }}>
+            <Box sx={{ flexGrow: 1 }} />
+            <IconButton
+              onClick={handleAvatarClick}
+              size="small"
+              sx={{ ml: 1 }}
+              aria-controls={open ? 'user-menu' : undefined}
+              aria-haspopup="true"
+              aria-expanded={open ? 'true' : undefined}
+            >
+              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>{initials}</Avatar>
+            </IconButton>
+            <Menu
+              id="user-menu"
+              anchorEl={anchorEl}
+              open={open}
+              onClose={handleMenuClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <MenuItem component={Link} to="/profile" onClick={handleMenuClose}>
+                User details
+              </MenuItem>
+              <MenuItem onClick={handleLogout}>Logout</MenuItem>
+            </Menu>
+          </Toolbar>
+        </AppBar>
+
         <Box
           sx={{
             flex: 1,
+            p: 2,
+            display: 'flex',
+            flexDirection: 'column',
             border: '1px solid',
             borderColor: 'divider',
-            borderRadius: 1,
+            borderTop: 0,
+            borderRadius: '0 0 4px 4px',
             bgcolor: 'background.paper',
-            p: 2,
-            textAlign: 'left',
             overflow: 'auto',
           }}
         >

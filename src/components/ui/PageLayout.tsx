@@ -6,11 +6,13 @@ interface PageLayoutProps {
   title: string
   actions?: ReactNode
   children: ReactNode
+  /** Default 960; set higher or 'none' for full-width dashboards */
+  maxWidth?: number | string
 }
 
-export function PageLayout({ title, actions, children }: PageLayoutProps) {
+export function PageLayout({ title, actions, children, maxWidth = 960 }: PageLayoutProps) {
   return (
-    <Box sx={{ maxWidth: 960, mx: 0 }}>
+    <Box sx={{ maxWidth, mx: 0, width: '100%' }}>
       <Box
         sx={{
           py: 1.5,

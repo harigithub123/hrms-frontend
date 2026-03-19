@@ -3,6 +3,9 @@ export interface UserInfo {
   username: string
   email: string | null
   roles: string[]
+  employeeId?: number | null
+  /** How many employees list this user as manager (team leave / approvals). */
+  directReportCount?: number
 }
 
 export interface AuthResponse {

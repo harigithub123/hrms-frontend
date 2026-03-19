@@ -7,6 +7,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TablePagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -21,10 +22,16 @@ import type { Employee, EmployeeRequest, Department, Designation } from '../type
 import { AppButton, AppTextField, AppTypography, PageLayout, LoadingSpinner } from '../components/ui'
 import { useFieldValidation } from '../hooks/useFieldValidation'
 
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 50]
+
 export default function EmployeesPage() {
   const [list, setList] = useState<Employee[]>([])
+  const [totalRows, setTotalRows] = useState(0)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
   const [departments, setDepartments] = useState<Department[]>([])
   const [designations, setDesignations] = useState<Designation[]>([])
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Employee | null>(null)
@@ -39,17 +46,29 @@ export default function EmployeesPage() {
   const [managerId, setManagerId] = useState<number | ''>('')
   const [joinedAt, setJoinedAt] = useState('')
 
-  const load = () => {
-    Promise.all([employeesApi.list(), departmentsApi.list(), designationsApi.list()])
-      .then(([emp, dept, des]) => {
-        setList(emp)
+  const loadDropdowns = () => {
+    Promise.all([departmentsApi.listAll(), designationsApi.listAll(), employeesApi.listAll()]).then(
+      ([dept, des, allEmp]) => {
         setDepartments(dept)
         setDesignations(des)
+        setAllEmployees(allEmp)
+      }
+    )
+  }
+
+  const loadPage = () => {
+    setLoading(true)
+    employeesApi
+      .list(page, rowsPerPage)
+      .then((paged) => {
+        setList(paged.content)
+        setTotalRows(paged.totalElements)
       })
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { loadDropdowns() }, [])
+  useEffect(() => { loadPage() }, [page, rowsPerPage])
 
   const openCreate = () => {
     setEditing(null)
@@ -100,7 +119,7 @@ export default function EmployeesPage() {
       if (editing) await employeesApi.update(editing.id, body)
       else await employeesApi.create(body)
       close()
-      load()
+      loadPage()
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed')
     }
@@ -110,13 +129,19 @@ export default function EmployeesPage() {
     if (!window.confirm('Delete this employee?')) return
     try {
       await employeesApi.delete(id)
-      load()
+      loadPage()
     } catch {
       // ignore
     }
   }
 
-  const managerOptions = list.filter((e) => !editing || e.id !== editing.id)
+  const handleChangePage = (_: unknown, newPage: number) => setPage(newPage)
+  const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(e.target.value, 10))
+    setPage(0)
+  }
+
+  const managerOptions = allEmployees.filter((e) => !editing || e.id !== editing.id)
 
   if (loading) return <LoadingSpinner />
 
@@ -157,6 +182,16 @@ export default function EmployeesPage() {
           ))}
         </TableBody>
       </Table>
+      <TablePagination
+        component="div"
+        count={totalRows}
+        page={page}
+        onPageChange={handleChangePage}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+        rowsPerPageOptions={PAGE_SIZE_OPTIONS}
+        size="small"
+      />
 
       <Dialog open={open} onClose={close} maxWidth="sm" fullWidth>
         <DialogTitle>{editing ? 'Edit employee' : 'Add employee'}</DialogTitle>

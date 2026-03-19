@@ -7,6 +7,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TablePagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -17,8 +18,13 @@ import type { Designation, DesignationRequest } from '../types/org'
 import { AppButton, AppTextField, AppTypography, PageLayout, LoadingSpinner } from '../components/ui'
 import { useFieldValidation } from '../hooks/useFieldValidation'
 
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 50]
+
 export default function DesignationsPage() {
   const [list, setList] = useState<Designation[]>([])
+  const [totalRows, setTotalRows] = useState(0)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Designation | null>(null)
@@ -27,9 +33,23 @@ export default function DesignationsPage() {
   const name = useFieldValidation('', { required: true, maxLength: 150 })
   const code = useFieldValidation('', { maxLength: 50 })
 
-  const load = () => designationsApi.list().then(setList).finally(() => setLoading(false))
+  const load = () => {
+    setLoading(true)
+    designationsApi.list(page, rowsPerPage)
+      .then((paged) => {
+        setList(paged.content)
+        setTotalRows(paged.totalElements)
+      })
+      .finally(() => setLoading(false))
+  }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [page, rowsPerPage])
+
+  const handleChangePage = (_: unknown, newPage: number) => setPage(newPage)
+  const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(e.target.value, 10))
+    setPage(0)
+  }
 
   const openCreate = () => {
     setEditing(null)
@@ -53,7 +73,7 @@ export default function DesignationsPage() {
     setSubmitError('')
     const nameErr = name.validate()
     if (nameErr) return
-    const body: DesignationRequest = { name: name.value.trim(), code: code.value.trim() || undefined }
+    const body: DesignationRequest = { name: name.value.trim(), code: code.value.trim() || null }
     try {
       if (editing) await designationsApi.update(editing.id, body)
       else await designationsApi.create(body)
@@ -107,6 +127,16 @@ export default function DesignationsPage() {
           ))}
         </TableBody>
       </Table>
+      <TablePagination
+        component="div"
+        count={totalRows}
+        page={page}
+        onPageChange={handleChangePage}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+        rowsPerPageOptions={PAGE_SIZE_OPTIONS}
+        size="small"
+      />
 
       <Dialog open={open} onClose={close} maxWidth="sm" fullWidth>
         <DialogTitle>{editing ? 'Edit designation' : 'Add designation'}</DialogTitle>

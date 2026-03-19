@@ -28,6 +28,18 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+const DEFAULT_AUTH_VALUE: AuthContextValue = {
+  user: null,
+  accessToken: null,
+  isAuthenticated: false,
+  isLoading: true,
+  roles: [],
+  login: async () => {},
+  logout: () => {},
+  hasRole: () => false,
+  refreshUser: async () => {},
+}
+
 function getRefreshToken(): string | null {
   try {
     return typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null
@@ -98,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch {
             // ignore
           }
-          api.setAccessToken(null)
+          persistAndSetAuth(null, null)
         }
       })
       .finally(() => {
@@ -157,8 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
-  return ctx
+  return ctx ?? DEFAULT_AUTH_VALUE
 }

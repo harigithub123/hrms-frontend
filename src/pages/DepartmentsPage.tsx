@@ -7,6 +7,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TablePagination,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -17,8 +18,13 @@ import type { Department, DepartmentRequest } from '../types/org'
 import { AppButton, AppTextField, AppTypography, PageLayout, LoadingSpinner } from '../components/ui'
 import { useFieldValidation } from '../hooks/useFieldValidation'
 
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 50]
+
 export default function DepartmentsPage() {
   const [list, setList] = useState<Department[]>([])
+  const [totalRows, setTotalRows] = useState(0)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Department | null>(null)
@@ -28,9 +34,23 @@ export default function DepartmentsPage() {
   const code = useFieldValidation('', { maxLength: 50 })
   const description = useFieldValidation('', { maxLength: 500 })
 
-  const load = () => departmentsApi.list().then(setList).finally(() => setLoading(false))
+  const load = () => {
+    setLoading(true)
+    departmentsApi.list(page, rowsPerPage)
+      .then((paged) => {
+        setList(paged.content)
+        setTotalRows(paged.totalElements)
+      })
+      .finally(() => setLoading(false))
+  }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [page, rowsPerPage])
+
+  const handleChangePage = (_: unknown, newPage: number) => setPage(newPage)
+  const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(e.target.value, 10))
+    setPage(0)
+  }
 
   const openCreate = () => {
     setEditing(null)
@@ -58,8 +78,8 @@ export default function DepartmentsPage() {
     if (nameErr) return
     const body: DepartmentRequest = {
       name: name.value.trim(),
-      code: code.value.trim() || undefined,
-      description: description.value.trim() || undefined,
+      code: code.value.trim() || null,
+      description: description.value.trim() || null,
     }
     try {
       if (editing) await departmentsApi.update(editing.id, body)
@@ -116,6 +136,16 @@ export default function DepartmentsPage() {
           ))}
         </TableBody>
       </Table>
+      <TablePagination
+        component="div"
+        count={totalRows}
+        page={page}
+        onPageChange={handleChangePage}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+        rowsPerPageOptions={PAGE_SIZE_OPTIONS}
+        size="small"
+      />
 
       <Dialog open={open} onClose={close} maxWidth="sm" fullWidth>
         <DialogTitle>{editing ? 'Edit department' : 'Add department'}</DialogTitle>
