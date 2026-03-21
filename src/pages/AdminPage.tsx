@@ -5,7 +5,7 @@ export default function AdminPage() {
   const { user } = useAuth()
 
   return (
-    <PageLayout title="Admin">
+    <PageLayout>
       <AppTypography variant="body1">
         Admin-only area. Welcome, <strong>{user?.username}</strong>.
       </AppTypography>

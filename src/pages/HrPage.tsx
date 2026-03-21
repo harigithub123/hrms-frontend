@@ -7,7 +7,7 @@ export default function HrPage() {
   const { user } = useAuth()
 
   return (
-    <PageLayout title="HR">
+    <PageLayout>
       <AppTypography variant="body1" sx={{ mb: 2 }}>
         HR area. Welcome, <strong>{user?.username}</strong>. Use the sidebar or shortcuts below.
       </AppTypography>

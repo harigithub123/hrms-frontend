@@ -42,7 +42,7 @@ export default function PayslipsPage() {
   if (loading) return <LoadingSpinner />
 
   return (
-    <PageLayout title="My payslips">
+    <PageLayout>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}

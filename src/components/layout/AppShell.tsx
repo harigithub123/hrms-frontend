@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { getAppBarTitle } from './appBarTitle'
 
 const DRAWER_WIDTH = 240
 
@@ -70,6 +71,8 @@ export default function AppShell() {
     ? user.username.slice(0, 2).toUpperCase()
     : '?'
 
+  const appBarTitle = getAppBarTitle(location.pathname)
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <Drawer
@@ -91,7 +94,10 @@ export default function AppShell() {
         <Divider />
         <List dense sx={{ py: 0.5 }}>
           {items.map((item) => {
-            const selected = location.pathname === item.path
+            const selected =
+              item.path === '/leave'
+                ? location.pathname === '/leave' || location.pathname === '/leave/team'
+                : location.pathname === item.path
             return (
               <ListItemButton
                 key={item.path}
@@ -107,7 +113,19 @@ export default function AppShell() {
 
       <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Toolbar disableGutters sx={{ px: 2, minHeight: { xs: 48, sm: 48 } }}>
+          <Toolbar
+            disableGutters
+            sx={{
+              px: 2,
+              minHeight: { xs: 48, sm: 48 },
+              gap: 1,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography component="h1" variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+              {appBarTitle}
+            </Typography>
             <Box sx={{ flexGrow: 1 }} />
             <IconButton
               onClick={handleAvatarClick}

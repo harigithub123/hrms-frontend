@@ -40,6 +40,7 @@ function App() {
             <Route path="/designations" element={<DesignationsPage />} />
             <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/leave" element={<LeavePage />} />
+            <Route path="/leave/team" element={<LeavePage />} />
             <Route path="/leave/calendar" element={<LeaveCalendarPage />} />
             <Route path="/leave/admin" element={<LeaveAdminPage />} />
             <Route path="/leave/approvals" element={<LeaveApprovalsPage />} />

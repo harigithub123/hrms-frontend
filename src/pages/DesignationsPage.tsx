@@ -98,7 +98,6 @@ export default function DesignationsPage() {
 
   return (
     <PageLayout
-      title="Designations"
       actions={
         <Box sx={{ display: 'flex', gap: 1 }}>
           <AppButton component={Link} to="/hr" variant="outlined">Back</AppButton>

@@ -5,7 +5,7 @@ export default function DashboardPage() {
   const { user, roles } = useAuth()
 
   return (
-    <PageLayout title="Dashboard">
+    <PageLayout>
       <AppTypography variant="body1">
         Welcome, <strong>{user?.username}</strong>
       </AppTypography>

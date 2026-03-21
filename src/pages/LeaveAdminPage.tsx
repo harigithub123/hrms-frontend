@@ -104,7 +104,6 @@ export default function LeaveAdminPage() {
 
   return (
     <PageLayout
-      title="Leave admin"
       actions={
         <Box sx={{ display: 'flex', gap: 1 }}>
           <AppButton variant="outlined" onClick={() => setTypeOpen(true)}>

@@ -89,7 +89,6 @@ export default function AttendancePage() {
 
   return (
     <PageLayout
-      title="Attendance"
       actions={
         isHr ? (
           <AppButton variant="contained" disabled={employeeId === ''} onClick={() => setOpen(true)}>

@@ -154,7 +154,7 @@ export default function PayrollPage() {
   if (loading) return <LoadingSpinner />
 
   return (
-    <PageLayout title="Payroll">
+    <PageLayout>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}

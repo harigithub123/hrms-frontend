@@ -19,7 +19,7 @@ import {
   TableRow,
   Tabs,
 } from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
   holidaysApi,
@@ -67,8 +67,10 @@ function TabPanel({ children, value, index }: { children: ReactNode; value: numb
 
 export default function LeavePage() {
   const { user, hasRole } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const mainTab = location.pathname === '/leave/team' ? 1 : 0
   const now = useMemo(() => new Date(), [])
-  const [mainTab, setMainTab] = useState(0)
   const [year, setYear] = useState(now.getFullYear())
   const [calYear, setCalYear] = useState(now.getFullYear())
   const [calMonth, setCalMonth] = useState(now.getMonth() + 1)
@@ -196,20 +198,12 @@ export default function LeavePage() {
 
   return (
     <PageLayout
-      title="Leave"
       maxWidth="none"
       actions={
-        (hasRole('HR') || hasRole('ADMIN') || hasReportees) && (
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <AppButton component={RouterLink} to="/leave/approvals" variant="outlined">
-              Pending approvals
-            </AppButton>
-            {(hasRole('HR') || hasRole('ADMIN')) && (
-              <AppButton component={RouterLink} to="/leave/admin" variant="outlined">
-                Leave admin
-              </AppButton>
-            )}
-          </Stack>
+        (hasRole('HR') || hasRole('ADMIN')) && (
+          <AppButton component={RouterLink} to="/leave/admin" variant="outlined">
+            Leave admin
+          </AppButton>
         )
       }
     >
@@ -228,7 +222,7 @@ export default function LeavePage() {
       <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Tabs
           value={mainTab}
-          onChange={(_, v) => setMainTab(v)}
+          onChange={(_, v) => navigate(v === 0 ? '/leave' : '/leave/team')}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
@@ -238,10 +232,9 @@ export default function LeavePage() {
             '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minHeight: 48 },
           }}
         >
-          <Tab label="My leave details" id="leave-tab-0" aria-controls="leave-tabpanel-0" />
-          <Tab label="Team leave" id="leave-tab-1" aria-controls="leave-tabpanel-1" />
+          <Tab label="My leave details" id="leave-subtab-0" />
+          <Tab label="Team leave" id="leave-subtab-1" />
         </Tabs>
-
         <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
           <TabPanel value={mainTab} index={0}>
             <Box

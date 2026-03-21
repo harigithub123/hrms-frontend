@@ -40,7 +40,7 @@ export default function LeaveApprovalsPage() {
   if (loading) return <LoadingSpinner />
 
   return (
-    <PageLayout title="Leave approvals">
+    <PageLayout>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}

@@ -5,7 +5,7 @@ export default function ProfilePage() {
   const { user, roles } = useAuth()
 
   return (
-    <PageLayout title="User details">
+    <PageLayout>
       <AppTypography variant="body1" sx={{ mb: 1 }}>
         <strong>Username:</strong> {user?.username ?? '—'}
       </AppTypography>

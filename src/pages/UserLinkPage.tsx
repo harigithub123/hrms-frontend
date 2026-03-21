@@ -42,7 +42,7 @@ export default function UserLinkPage() {
   if (loading) return <LoadingSpinner />
 
   return (
-    <PageLayout title="User ↔ Employee link">
+    <PageLayout>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
