@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   Drawer,
   List,
   ListItemButton,
   ListItemText,
+  ListSubheader,
+  Collapse,
   Box,
   Divider,
   AppBar,
@@ -20,27 +22,93 @@ import { getAppBarTitle } from './appBarTitle'
 
 const DRAWER_WIDTH = 240
 
-type MenuItem = {
+/** Menu paths use no ROLE_ prefix in `roles`. */
+type NavItem = {
   label: string
   path: string
-  roles?: string[] // without ROLE_ prefix
+  /** Extra paths that should highlight this item (e.g. /leave/team for Leave). */
+  matchPaths?: string[]
+  roles?: string[]
 }
 
-const MENU: MenuItem[] = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'Leave', path: '/leave' },
-  { label: 'Leave approvals', path: '/leave/approvals' },
-  { label: 'Attendance', path: '/attendance' },
-  { label: 'My payslips', path: '/payslips' },
-  { label: 'HR', path: '/hr', roles: ['HR', 'ADMIN'] },
-  { label: 'Departments', path: '/departments', roles: ['HR', 'ADMIN'] },
-  { label: 'Designations', path: '/designations', roles: ['HR', 'ADMIN'] },
-  { label: 'Employees', path: '/employees', roles: ['HR', 'ADMIN'] },
-  { label: 'Leave admin', path: '/leave/admin', roles: ['HR', 'ADMIN'] },
-  { label: 'Payroll', path: '/payroll', roles: ['HR', 'ADMIN'] },
-  { label: 'User ↔ Employee', path: '/users/link', roles: ['HR', 'ADMIN'] },
-  { label: 'Admin', path: '/admin', roles: ['ADMIN'] },
+type NavSection = {
+  id: string
+  label: string
+  /** When true, section is a collapsible parent with nested links. */
+  collapsible: boolean
+  items: NavItem[]
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    id: 'general',
+    label: 'General',
+    collapsible: false,
+    items: [
+      { label: 'Dashboard', path: '/' },
+      {
+        label: 'Leave',
+        path: '/leave',
+        matchPaths: ['/leave/team', '/leave/calendar'],
+      },
+      { label: 'Leave approvals', path: '/leave/approvals' },
+      { label: 'Attendance', path: '/attendance' },
+      { label: 'My payslips', path: '/payslips' },
+      { label: 'Advances', path: '/advances' },
+    ],
+  },
+  {
+    id: 'master-data',
+    label: 'Master data',
+    collapsible: true,
+    items: [
+      { label: 'Departments', path: '/departments', roles: ['HR', 'ADMIN'] },
+      { label: 'Designations', path: '/designations', roles: ['HR', 'ADMIN'] },
+      { label: 'Employees', path: '/employees', roles: ['HR', 'ADMIN'] },
+      { label: 'User ↔ Employee', path: '/users/link', roles: ['HR', 'ADMIN'] },
+    ],
+  },
+  {
+    id: 'hr-operations',
+    label: 'HR & payroll',
+    collapsible: true,
+    items: [
+      { label: 'HR overview', path: '/hr', roles: ['HR', 'ADMIN'] },
+      { label: 'Leave admin', path: '/leave/admin', roles: ['HR', 'ADMIN'] },
+      { label: 'Payroll', path: '/payroll', roles: ['HR', 'ADMIN'] },
+      { label: 'Onboarding', path: '/hr/onboarding', roles: ['HR', 'ADMIN'] },
+      { label: 'Offers', path: '/hr/offers', roles: ['HR', 'ADMIN'] },
+      { label: 'Compensation', path: '/hr/compensation', roles: ['HR', 'ADMIN'] },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'Administration',
+    collapsible: true,
+    items: [{ label: 'System admin', path: '/admin', roles: ['ADMIN'] }],
+  },
 ]
+
+function NavChevron({ open }: { open: boolean }) {
+  return (
+    <Box
+      component="svg"
+      viewBox="0 0 24 24"
+      width={20}
+      height={20}
+      aria-hidden
+      sx={{
+        flexShrink: 0,
+        opacity: 0.7,
+        transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+        transition: (theme) =>
+          theme.transitions.create('transform', { duration: theme.transitions.duration.shorter }),
+      }}
+    >
+      <path fill="currentColor" d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z" />
+    </Box>
+  )
+}
 
 export default function AppShell() {
   const location = useLocation()
@@ -52,11 +120,48 @@ export default function AppShell() {
   const hasReportees = (user?.directReportCount ?? 0) > 0
   const canSeeApprovals = hasRole('HR') || hasRole('ADMIN') || hasReportees
 
-  const items = MENU.filter((i) => {
-    if (i.path === '/leave/approvals') return canSeeApprovals
-    if (!i.roles) return true
-    return i.roles.some((r) => hasRole(r))
-  })
+  const itemVisible = (item: NavItem) => {
+    if (item.path === '/leave/approvals') return canSeeApprovals
+    if (!item.roles?.length) return true
+    return item.roles.some((r) => hasRole(r))
+  }
+
+  const navSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter(itemVisible),
+  })).filter((s) => s.items.length > 0)
+
+  const isNavSelected = (item: NavItem) =>
+    location.pathname === item.path || (item.matchPaths ?? []).includes(location.pathname)
+
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+
+  /** Open any collapsible group that contains the current route. */
+  useEffect(() => {
+    setExpanded((prev) => {
+      const next = { ...prev }
+      for (const s of NAV_SECTIONS) {
+        if (!s.collapsible) continue
+        const items = s.items.filter((item) => {
+          if (item.path === '/leave/approvals') return canSeeApprovals
+          if (!item.roles?.length) return true
+          return item.roles.some((r) => hasRole(r))
+        })
+        const hasActive = items.some(
+          (item) =>
+            location.pathname === item.path || (item.matchPaths ?? []).includes(location.pathname)
+        )
+        if (hasActive) {
+          next[s.id] = true
+        }
+      }
+      return next
+    })
+  }, [location.pathname, canSeeApprovals, hasRole])
+
+  const toggleSection = (id: string) => {
+    setExpanded((e) => ({ ...e, [id]: !e[id] }))
+  }
 
   const handleAvatarClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
@@ -92,23 +197,80 @@ export default function AppShell() {
           </Typography>
         </Box>
         <Divider />
+        <Box component="nav" aria-label="Main navigation">
         <List dense sx={{ py: 0.5 }}>
-          {items.map((item) => {
-            const selected =
-              item.path === '/leave'
-                ? location.pathname === '/leave' || location.pathname === '/leave/team'
-                : location.pathname === item.path
+          {navSections.map((section, si) => {
+            const sectionHasSelection = section.items.some(isNavSelected)
+            const isOpen = section.collapsible ? !!expanded[section.id] : true
+
+            if (!section.collapsible) {
+              return (
+                <Fragment key={section.id}>
+                  <ListSubheader
+                    disableSticky
+                    sx={{
+                      px: 2,
+                      py: 0.75,
+                      mt: si > 0 ? 0.5 : 0,
+                      lineHeight: 1.25,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      color: 'text.secondary',
+                      bgcolor: 'transparent',
+                    }}
+                  >
+                    {section.label}
+                  </ListSubheader>
+                  {section.items.map((item) => (
+                    <ListItemButton
+                      key={`${section.id}-${item.path}`}
+                      selected={isNavSelected(item)}
+                      onClick={() => navigate(item.path)}
+                      sx={{ pl: 2 }}
+                    >
+                      <ListItemText primary={item.label} primaryTypographyProps={{ variant: 'body2' }} />
+                    </ListItemButton>
+                  ))}
+                </Fragment>
+              )
+            }
+
             return (
-              <ListItemButton
-                key={item.path}
-                selected={selected}
-                onClick={() => navigate(item.path)}
-              >
-                <ListItemText primary={item.label} />
-              </ListItemButton>
+              <Fragment key={section.id}>
+                {si > 0 && <Divider component="li" sx={{ my: 0.5, listStyle: 'none' }} />}
+                <ListItemButton
+                  onClick={() => toggleSection(section.id)}
+                  selected={sectionHasSelection}
+                  aria-expanded={isOpen}
+                  sx={{ pl: 2, py: 1 }}
+                >
+                  <ListItemText
+                    primary={section.label}
+                    primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
+                  />
+                  <NavChevron open={isOpen} />
+                </ListItemButton>
+                <Collapse in={isOpen} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding dense>
+                    {section.items.map((item) => (
+                      <ListItemButton
+                        key={`${section.id}-${item.path}`}
+                        selected={isNavSelected(item)}
+                        onClick={() => navigate(item.path)}
+                        sx={{ pl: 3.5 }}
+                      >
+                        <ListItemText primary={item.label} primaryTypographyProps={{ variant: 'body2' }} />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Collapse>
+              </Fragment>
             )
           })}
         </List>
+        </Box>
       </Drawer>
 
       <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>

@@ -11,15 +11,21 @@ import type {
 import type {
   AttendanceRecord,
   AttendanceStatus,
+  EmployeeCompensation,
   Holiday,
+  JobOffer,
   LeaveBalance,
   LeaveCalendarEntry,
   LeaveCalendarRange,
   LeaveRequest,
   LeaveRequestStatus,
   LeaveType,
+  OfferTemplate,
+  OnboardingCase,
+  OnboardingTask,
   PayRun,
   Payslip,
+  SalaryAdvance,
   SalaryComponent,
   SalaryComponentKind,
   SalaryStructure,
@@ -151,6 +157,52 @@ async function fetchBinary(path: string): Promise<Blob> {
     throw new Error(text || 'Request failed')
   }
   return res.blob()
+}
+
+function parseFilenameFromContentDisposition(cd: string | null): string | null {
+  if (!cd) return null
+  const utf8 = /filename\*=UTF-8''([^;\n]+)/i.exec(cd)
+  if (utf8) {
+    try {
+      return decodeURIComponent(utf8[1].trim())
+    } catch {
+      /* ignore */
+    }
+  }
+  const quoted = /filename="([^"]+)"/i.exec(cd)
+  if (quoted) return quoted[1]
+  const plain = /filename=([^;\n]+)/i.exec(cd)
+  if (plain) return plain[1].trim().replace(/^"+|"+$/g, '')
+  return null
+}
+
+/** GET PDF (or other binary) and parse download filename from Content-Disposition */
+async function fetchPdf(path: string): Promise<{ blob: Blob; filename: string }> {
+  const doFetch = (token: string | null) => {
+    const headers: HeadersInit = {}
+    if (token) (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
+    return fetch(`${API_BASE}${path}`, { headers })
+  }
+  let res = await doFetch(accessToken)
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      res = await doFetch(newToken)
+    } else {
+      setAccessToken(null)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth:session-expired'))
+      }
+      throw new Error('Unauthorized')
+    }
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || 'Request failed')
+  }
+  const blob = await res.blob()
+  const name = parseFilenameFromContentDisposition(res.headers.get('Content-Disposition'))
+  return { blob, filename: name ?? 'offer.pdf' }
 }
 
 function buildPageParams(page: number, size: number) {
@@ -316,4 +368,98 @@ export const payrollApi = {
   },
   getPayslip: (id: number) => apiFetch<Payslip>(`/payroll/payslips/${id}`).then(handleOk),
   downloadPayslipPdf: (id: number) => fetchBinary(`/payroll/payslips/${id}/pdf`),
+}
+
+export const compensationApi = {
+  list: (employeeId: number) =>
+    apiFetch<EmployeeCompensation[]>(`/compensation/employee/${employeeId}`).then(handleOk),
+  create: (body: {
+    employeeId: number
+    effectiveFrom: string
+    effectiveTo?: string | null
+    currency?: string | null
+    annualCtc?: number | null
+    notes?: string | null
+    lines: { componentId: number; amount: number }[]
+  }) => apiFetch<EmployeeCompensation>('/compensation', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+  syncStructure: (id: number) =>
+    apiFetch<SalaryStructure>(`/compensation/${id}/sync-structure`, { method: 'POST' }).then(handleOk),
+}
+
+export const offersApi = {
+  listTemplates: () => apiFetch<OfferTemplate[]>('/offers/templates').then(handleOk),
+  createTemplate: (body: { name: string; bodyHtml: string; active: boolean }) =>
+    apiFetch<OfferTemplate>('/offers/templates', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+  updateTemplate: (id: number, body: { name: string; bodyHtml: string; active: boolean }) =>
+    apiFetch<OfferTemplate>(`/offers/templates/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
+  listOffers: () => apiFetch<JobOffer[]>('/offers').then(handleOk),
+  getOffer: (id: number) => apiFetch<JobOffer>(`/offers/${id}`).then(handleOk),
+  createOffer: (body: {
+    templateId?: number | null
+    candidateName: string
+    candidateEmail?: string | null
+    departmentId?: number | null
+    designationId?: number | null
+    managerId?: number | null
+    joinDate?: string | null
+    annualCtc?: number | null
+    currency?: string | null
+  }) => apiFetch<JobOffer>('/offers', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+  send: (id: number) => apiFetch<JobOffer>(`/offers/${id}/send`, { method: 'POST' }).then(handleOk),
+  accept: (id: number) => apiFetch<JobOffer>(`/offers/${id}/accept`, { method: 'POST' }).then(handleOk),
+  downloadPdf: (id: number) => fetchPdf(`/offers/${id}/pdf`),
+}
+
+export const onboardingApi = {
+  list: () => apiFetch<OnboardingCase[]>('/onboarding').then(handleOk),
+  get: (id: number) => apiFetch<OnboardingCase>(`/onboarding/${id}`).then(handleOk),
+  create: (body: {
+    candidateFirstName: string
+    candidateLastName: string
+    candidateEmail?: string | null
+    joinDate: string
+    departmentId?: number | null
+    designationId?: number | null
+    managerId?: number | null
+    offerId?: number | null
+    assignedHrUserId?: number | null
+    notes?: string | null
+  }) => apiFetch<OnboardingCase>('/onboarding', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+  setStatus: (id: number, status: string) =>
+    apiFetch<OnboardingCase>(`/onboarding/${id}/status?status=${encodeURIComponent(status)}`, {
+      method: 'PATCH',
+    }).then(handleOk),
+  toggleTask: (caseId: number, taskId: number, done: boolean) =>
+    apiFetch<OnboardingTask>(`/onboarding/${caseId}/tasks/${taskId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ done }),
+    }).then(handleOk),
+  complete: (id: number) =>
+    apiFetch<OnboardingCase>(`/onboarding/${id}/complete`, { method: 'POST' }).then(handleOk),
+}
+
+export const advancesApi = {
+  mine: () => apiFetch<SalaryAdvance[]>('/advances/mine').then(handleOk),
+  listAll: () => apiFetch<SalaryAdvance[]>('/advances').then(handleOk),
+  create: (body: {
+    employeeId?: number | null
+    amount: number
+    currency?: string | null
+    reason?: string | null
+    recoveryMonths: number
+  }) => apiFetch<SalaryAdvance>('/advances', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+  approve: (id: number, body?: { recoveryMonths?: number; recoveryAmountPerMonth?: number | null } | null) =>
+    apiFetch<SalaryAdvance>(`/advances/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(body ?? {}),
+    }).then(handleOk),
+  reject: (id: number, reason?: string | null) =>
+    apiFetch<SalaryAdvance>(`/advances/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason ?? null }),
+    }).then(handleOk),
+  markPaid: (id: number, payoutDate?: string | null) => {
+    const q = payoutDate ? `?payoutDate=${encodeURIComponent(payoutDate)}` : ''
+    return apiFetch<SalaryAdvance>(`/advances/${id}/mark-paid${q}`, { method: 'POST' }).then(handleOk)
+  },
 }

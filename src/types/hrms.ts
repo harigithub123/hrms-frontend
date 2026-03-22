@@ -145,3 +145,105 @@ export interface UserSummary {
   username: string
   employeeId: number | null
 }
+
+/** Compensation package (authoring; sync to salary structure from UI) */
+export interface CompensationLine {
+  id: number
+  componentId: number
+  componentCode: string
+  componentName: string
+  amount: string | number
+}
+
+export interface EmployeeCompensation {
+  id: number
+  employeeId: number
+  effectiveFrom: string
+  effectiveTo: string | null
+  currency: string
+  annualCtc: string | number | null
+  notes: string | null
+  createdAt: string
+  lines: CompensationLine[]
+}
+
+export interface OfferTemplate {
+  id: number
+  name: string
+  bodyHtml: string
+  active: boolean
+  createdAt: string
+}
+
+export type JobOfferStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED'
+
+export interface JobOffer {
+  id: number
+  templateId: number | null
+  candidateName: string
+  candidateEmail: string | null
+  status: JobOfferStatus
+  departmentId: number | null
+  departmentName: string | null
+  designationId: number | null
+  designationName: string | null
+  managerId: number | null
+  managerName: string | null
+  joinDate: string | null
+  annualCtc: string | number | null
+  currency: string
+  bodyHtml: string | null
+  pdfGeneratedAt: string | null
+  createdAt: string
+}
+
+export type OnboardingStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+
+export interface OnboardingTask {
+  id: number
+  label: string
+  done: boolean
+  sortOrder: number
+}
+
+export interface OnboardingCase {
+  id: number
+  status: OnboardingStatus
+  candidateFirstName: string
+  candidateLastName: string
+  candidateEmail: string | null
+  joinDate: string
+  departmentId: number | null
+  departmentName: string | null
+  designationId: number | null
+  designationName: string | null
+  managerId: number | null
+  managerName: string | null
+  employeeId: number | null
+  offerId: number | null
+  assignedHrUserId: number | null
+  notes: string | null
+  createdAt: string
+  tasks: OnboardingTask[]
+}
+
+export type AdvanceStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAID' | 'RECOVERY_COMPLETE'
+
+export interface SalaryAdvance {
+  id: number
+  employeeId: number
+  employeeName: string
+  amount: string | number
+  currency: string
+  reason: string | null
+  status: AdvanceStatus
+  requestedAt: string
+  approvedByUserId: number | null
+  approvedAt: string | null
+  rejectedReason: string | null
+  payoutDate: string | null
+  paidAt: string | null
+  recoveryMonths: number
+  recoveryAmountPerMonth: string | number | null
+  outstandingBalance: string | number | null
+}

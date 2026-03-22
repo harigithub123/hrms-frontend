@@ -30,6 +30,18 @@ export default function HrPage() {
         <AppButton component={RouterLink} to="/payroll" variant="outlined">
           Payroll
         </AppButton>
+        <AppButton component={RouterLink} to="/hr/onboarding" variant="outlined">
+          Onboarding
+        </AppButton>
+        <AppButton component={RouterLink} to="/hr/offers" variant="outlined">
+          Offers
+        </AppButton>
+        <AppButton component={RouterLink} to="/hr/compensation" variant="outlined">
+          Compensation
+        </AppButton>
+        <AppButton component={RouterLink} to="/advances" variant="outlined">
+          Advances
+        </AppButton>
         <AppButton component={RouterLink} to="/attendance" variant="outlined">
           Attendance
         </AppButton>
