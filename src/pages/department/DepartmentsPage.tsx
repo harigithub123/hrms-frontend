@@ -131,6 +131,7 @@ export default function DepartmentsPage() {
 
   return (
     <PageLayout
+      title="Departments"
       maxWidth="none"
       actions={
         <Box sx={{ display: 'flex', gap: 1 }}>

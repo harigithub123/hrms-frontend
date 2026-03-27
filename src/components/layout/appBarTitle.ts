@@ -9,7 +9,6 @@ export function getAppBarTitle(pathname: string): string {
     { prefix: '/leave/team', label: 'Leave' },
     { prefix: '/users/link', label: 'User ↔ Employee' },
     { prefix: '/designations', label: 'Designations' },
-    { prefix: '/departments', label: 'Departments' },
     { prefix: '/employees', label: 'Employees' },
     { prefix: '/payslips', label: 'My payslips' },
     { prefix: '/attendance', label: 'Attendance' },
@@ -34,5 +33,5 @@ export function getAppBarTitle(pathname: string): string {
     return 'Dashboard'
   }
 
-  return 'HRMS'
+  return ''
 }

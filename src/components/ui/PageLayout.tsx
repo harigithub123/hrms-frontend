@@ -18,7 +18,7 @@ export function PageLayout({ title, actions, children, maxWidth = 960 }: PageLay
       {showHeaderRow && (
         <Box
           sx={{
-            py: 1.5,
+            py: 0.5,
             display: 'flex',
             justifyContent: title ? 'space-between' : 'flex-end',
             alignItems: 'center',
@@ -34,7 +34,7 @@ export function PageLayout({ title, actions, children, maxWidth = 960 }: PageLay
           {actions}
         </Box>
       )}
-      <Box sx={{ mt: showHeaderRow ? 1.5 : 0 }}>{children}</Box>
+      <Box sx={{ mt: showHeaderRow ? 0.25 : 0 }}>{children}</Box>
     </Box>
   )
 }
