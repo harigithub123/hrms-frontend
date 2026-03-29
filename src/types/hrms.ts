@@ -12,6 +12,10 @@ export interface LeaveType {
   code: string
   daysPerYear: string
   carryForward: boolean
+  /** Max days that may be carried from one year into the next; null = no limit. */
+  maxCarryForwardPerYear: string | number | null
+  /** Max total carry-forward balance; null = no limit. */
+  maxCarryForward: string | number | null
   paid: boolean
   active: boolean
 }
@@ -24,7 +28,36 @@ export interface LeaveBalance {
   leaveTypeCode: string
   year: number
   allocatedDays: string
+  carryForwardedDays: string
   usedDays: string
+}
+
+export type LeaveBalanceAdjustmentKind = 'ALLOCATION' | 'CARRY_FORWARD' | 'LAPSE'
+
+export type LeaveLedgerAction = 'OPENING' | 'ALLOCATED' | 'CARRY_FORWARD' | 'LAPSE' | 'LEAVE_TAKEN'
+
+export interface LeaveLedgerRow {
+  entryDate: string
+  leaveTypeCode: string
+  leaveTypeName: string
+  action: LeaveLedgerAction
+  days: string | number | null
+  balanceAfter: string | number
+  details: string
+}
+
+export interface LeaveBalanceAdjustment {
+  id: number
+  employeeId: number
+  leaveTypeId: number
+  leaveTypeCode: string
+  leaveTypeName: string
+  year: number
+  kind: LeaveBalanceAdjustmentKind
+  deltaDays: string
+  comment: string
+  createdAt: string
+  createdByUsername: string | null
 }
 
 export interface LeaveRequest {

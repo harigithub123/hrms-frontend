@@ -10,6 +10,8 @@ export type LeaveTypeFormValues = {
   code: string
   daysPerYear: string
   carryForward: string
+  maxCarryForwardPerYear: string
+  maxCarryForward: string
   paid: string
   active: string
 }
@@ -26,6 +28,22 @@ export const LEAVE_TYPE_FORM_CONFIG: Array<GenericFormFieldConfig<LeaveTypeFormV
     step: 0.5,
   },
   { name: 'carryForward', label: 'Carry forward', required: true, type: 'select', selectOptions: YES_NO },
+  {
+    name: 'maxCarryForwardPerYear',
+    label: 'Max carry / year (into next year)',
+    required: false,
+    type: 'number',
+    min: 0,
+    step: 0.5,
+  },
+  {
+    name: 'maxCarryForward',
+    label: 'Max carry-forward balance (cap)',
+    required: false,
+    type: 'number',
+    min: 0,
+    step: 0.5,
+  },
   { name: 'paid', label: 'Paid', required: true, type: 'select', selectOptions: YES_NO },
   { name: 'active', label: 'Active', required: true, type: 'select', selectOptions: YES_NO },
 ]
@@ -35,6 +53,8 @@ export const EMPTY_LEAVE_TYPE_FORM: LeaveTypeFormValues = {
   code: '',
   daysPerYear: '',
   carryForward: 'false',
+  maxCarryForwardPerYear: '',
+  maxCarryForward: '',
   paid: 'true',
   active: 'true',
 }

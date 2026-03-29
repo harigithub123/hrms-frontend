@@ -15,6 +15,9 @@ import type {
   Holiday,
   JobOffer,
   LeaveBalance,
+  LeaveBalanceAdjustment,
+  LeaveBalanceAdjustmentKind,
+  LeaveLedgerRow,
   LeaveCalendarEntry,
   LeaveCalendarRange,
   LeaveRequest,
@@ -271,6 +274,8 @@ export const leaveTypesApi = {
     code: string
     daysPerYear: number
     carryForward: boolean
+    maxCarryForwardPerYear: number | null
+    maxCarryForward: number | null
     paid: boolean
     active: boolean
   }) => apiFetch<LeaveType>('/leave/types', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
@@ -281,6 +286,8 @@ export const leaveTypesApi = {
       code: string
       daysPerYear: number
       carryForward: boolean
+      maxCarryForwardPerYear: number | null
+      maxCarryForward: number | null
       paid: boolean
       active: boolean
     }
@@ -293,6 +300,23 @@ export const leaveBalancesApi = {
     apiFetch<LeaveBalance[]>(`/leave/balances?employeeId=${employeeId}&year=${year}`).then(handleOk),
   upsert: (body: { employeeId: number; leaveTypeId: number; year: number; allocatedDays: number }) =>
     apiFetch<LeaveBalance>('/leave/balances', { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
+  listAdjustments: (employeeId: number, year: number) =>
+    apiFetch<LeaveBalanceAdjustment[]>(
+      `/leave/balances/adjustments?employeeId=${employeeId}&year=${year}`,
+    ).then(handleOk),
+  adjust: (body: {
+    employeeId: number
+    leaveTypeId: number
+    year: number
+    kind: LeaveBalanceAdjustmentKind
+    deltaDays: number
+    comment: string
+  }) => apiFetch<LeaveBalance>('/leave/balances/adjustments', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+}
+
+export const leaveReportsApi = {
+  ledger: (employeeId: number, year: number) =>
+    apiFetch<LeaveLedgerRow[]>(`/leave/reports/ledger?employeeId=${employeeId}&year=${year}`).then(handleOk),
 }
 
 export const leaveRequestsApi = {

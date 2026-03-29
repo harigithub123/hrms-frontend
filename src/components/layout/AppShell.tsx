@@ -49,7 +49,7 @@ const NAV_SECTIONS: NavSection[] = [
       {
         label: 'Leave',
         path: '/leave',
-        matchPaths: ['/leave/team', '/leave/calendar'],
+        matchPaths: ['/leave/team', '/leave/calendar', '/leave/report'],
       },
       { label: 'Leave approvals', path: '/leave/approvals' },
       { label: 'Attendance', path: '/attendance' },

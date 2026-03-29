@@ -20,6 +20,16 @@ export function getLeaveTypeColumnDefs(): ColDef<LeaveType>[] {
       valueFormatter: (p) => yesNo(Boolean(p.value)),
     },
     {
+      headerName: 'Max carry / yr',
+      field: 'maxCarryForwardPerYear',
+      valueFormatter: (p) => (p.value == null || p.value === '' ? '—' : String(p.value)),
+    },
+    {
+      headerName: 'Max carry cap',
+      field: 'maxCarryForward',
+      valueFormatter: (p) => (p.value == null || p.value === '' ? '—' : String(p.value)),
+    },
+    {
       headerName: 'Paid',
       field: 'paid',
       valueFormatter: (p) => yesNo(Boolean(p.value)),

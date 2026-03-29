@@ -200,11 +200,18 @@ export default function LeavePage() {
     <PageLayout
       maxWidth="none"
       actions={
-        (hasRole('HR') || hasRole('ADMIN')) && (
-          <AppButton component={RouterLink} to="/leave/admin" variant="outlined">
-            Leave admin
-          </AppButton>
-        )
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {((hasRole('HR') || hasRole('ADMIN')) || empId != null) && (
+            <AppButton component={RouterLink} to="/leave/report" variant="outlined">
+              Leave ledger
+            </AppButton>
+          )}
+          {(hasRole('HR') || hasRole('ADMIN')) && (
+            <AppButton component={RouterLink} to="/leave/admin" variant="outlined">
+              Leave admin
+            </AppButton>
+          )}
+        </Box>
       }
     >
       {!canApply && (
@@ -384,7 +391,7 @@ export default function LeavePage() {
                   <Divider sx={{ mb: 1.5 }} />
                   {!showBalances ? (
                     <AppTypography variant="body2" color="text.secondary">
-                      Link your account to an employee to see leave types with allocated, used, and balance per type.
+                      Link your account to an employee to see leave types with allocation, carry-forward, used, and balance per type.
                     </AppTypography>
                   ) : types.length === 0 ? (
                     <AppTypography variant="body2" color="text.secondary">
@@ -395,8 +402,12 @@ export default function LeavePage() {
                       {types.map((t) => {
                         const b = balanceByType.get(t.id)
                         const allocated = b ? num(b.allocatedDays) : null
+                        const carried = b ? num(b.carryForwardedDays) : null
                         const used = b ? num(b.usedDays) : null
-                        const remaining = allocated != null && used != null ? allocated - used : null
+                        const remaining =
+                          allocated != null && carried != null && used != null
+                            ? allocated + carried - used
+                            : null
                         return (
                           <Box
                             key={t.id}
@@ -420,6 +431,14 @@ export default function LeavePage() {
                                 </AppTypography>
                                 <AppTypography variant="body2" fontWeight={600}>
                                   {allocated != null ? allocated : '—'}
+                                </AppTypography>
+                              </Box>
+                              <Box>
+                                <AppTypography variant="caption" color="text.secondary" display="block">
+                                  Carry fwd
+                                </AppTypography>
+                                <AppTypography variant="body2" fontWeight={600}>
+                                  {carried != null ? carried : '—'}
                                 </AppTypography>
                               </Box>
                               <Box>

@@ -4,6 +4,7 @@
 export function getAppBarTitle(pathname: string): string {
   const entries: { prefix: string; label: string }[] = [
     { prefix: '/leave/approvals', label: 'Leave approvals' },
+    { prefix: '/leave/report', label: 'Leave ledger' },
     { prefix: '/leave/admin', label: 'Leave admin' },
     { prefix: '/leave/calendar', label: 'Leave' },
     { prefix: '/leave/team', label: 'Leave' },

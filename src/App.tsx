@@ -12,6 +12,7 @@ import ProfilePage from './pages/ProfilePage'
 import LeavePage from './pages/LeavePage'
 import LeaveCalendarPage from './pages/LeaveCalendarPage'
 import LeaveAdminPage from './pages/LeaveAdminPage'
+import LeaveReportPage from './pages/LeaveReportPage'
 import LeaveApprovalsPage from './pages/LeaveApprovalsPage'
 import AttendancePage from './pages/AttendancePage'
 import PayrollPage from './pages/PayrollPage'
@@ -48,6 +49,7 @@ function App() {
             <Route path="/leave" element={<LeavePage />} />
             <Route path="/leave/team" element={<LeavePage />} />
             <Route path="/leave/calendar" element={<LeaveCalendarPage />} />
+            <Route path="/leave/report" element={<LeaveReportPage />} />
             <Route path="/leave/admin" element={<LeaveAdminPage />} />
             <Route path="/leave/approvals" element={<LeaveApprovalsPage />} />
             <Route path="/attendance" element={<AttendancePage />} />

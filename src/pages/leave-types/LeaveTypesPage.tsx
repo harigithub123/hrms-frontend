@@ -23,6 +23,26 @@ function validateDaysPerYear(value: string): string {
   return ''
 }
 
+function optionalNonNegativeNumber(value: string, label: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const n = parseFloat(trimmed)
+  if (!Number.isFinite(n) || n < 0) return `${label} must be empty or a non-negative number`
+  return ''
+}
+
+function optionalDecimalField(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const n = parseFloat(trimmed)
+  return Number.isFinite(n) ? n : null
+}
+
+function formatTypeDecimal(v: string | number | null | undefined): string {
+  if (v == null || v === '') return ''
+  return String(v)
+}
+
 export default function LeaveTypesPage() {
   const [refreshToken, setRefreshToken] = useState(0)
   const [open, setOpen] = useState(false)
@@ -35,6 +55,8 @@ export default function LeaveTypesPage() {
     const field = LEAVE_TYPE_FORM_CONFIG.find((item) => item.name === name)
     if (!field) return ''
     if (name === 'daysPerYear') return validateDaysPerYear(value)
+    if (name === 'maxCarryForwardPerYear') return optionalNonNegativeNumber(value, field.label)
+    if (name === 'maxCarryForward') return optionalNonNegativeNumber(value, field.label)
     const trimmed = value.trim()
     if (field.required && !trimmed) return `${field.label} is required`
     if (field.maxLength && value.length > field.maxLength) return `${field.label} cannot exceed ${field.maxLength} characters`
@@ -44,13 +66,29 @@ export default function LeaveTypesPage() {
   const validateForm = useCallback(
     (values: LeaveTypeFormValues) => {
       const nextErrors: Partial<Record<keyof LeaveTypeFormValues, string>> = {}
-      for (const field of LEAVE_TYPE_FORM_CONFIG) {
+      const fields =
+        values.carryForward === 'true'
+          ? LEAVE_TYPE_FORM_CONFIG
+          : LEAVE_TYPE_FORM_CONFIG.filter(
+              (f) => f.name !== 'maxCarryForwardPerYear' && f.name !== 'maxCarryForward',
+            )
+      for (const field of fields) {
         const error = validateField(field.name, values[field.name])
         if (error) nextErrors[field.name] = error
       }
       return nextErrors
     },
     [validateField],
+  )
+
+  const visibleFormFields = useMemo(
+    () =>
+      formValues.carryForward === 'true'
+        ? LEAVE_TYPE_FORM_CONFIG
+        : LEAVE_TYPE_FORM_CONFIG.filter(
+            (f) => f.name !== 'maxCarryForwardPerYear' && f.name !== 'maxCarryForward',
+          ),
+    [formValues.carryForward],
   )
 
   const fetchRows = useCallback(async ({ page, pageSize }: GridQueryParams): Promise<GridQueryResult<LeaveType>> => {
@@ -92,6 +130,8 @@ export default function LeaveTypesPage() {
       code: row.code,
       daysPerYear: row.daysPerYear != null && row.daysPerYear !== '' ? String(row.daysPerYear) : '',
       carryForward: row.carryForward ? 'true' : 'false',
+      maxCarryForwardPerYear: formatTypeDecimal(row.maxCarryForwardPerYear),
+      maxCarryForward: formatTypeDecimal(row.maxCarryForward),
       paid: row.paid ? 'true' : 'false',
       active: row.active ? 'true' : 'false',
     })
@@ -109,11 +149,14 @@ export default function LeaveTypesPage() {
     if (Object.values(errors).some(Boolean)) return
 
     const daysPerYear = parseFloat(formValues.daysPerYear.trim())
+    const carryForward = formValues.carryForward === 'true'
     const body = {
       name: formValues.name.trim(),
       code: formValues.code.trim(),
       daysPerYear,
-      carryForward: formValues.carryForward === 'true',
+      carryForward,
+      maxCarryForwardPerYear: carryForward ? optionalDecimalField(formValues.maxCarryForwardPerYear) : null,
+      maxCarryForward: carryForward ? optionalDecimalField(formValues.maxCarryForward) : null,
       paid: formValues.paid === 'true',
       active: formValues.active === 'true',
     }
@@ -174,7 +217,7 @@ export default function LeaveTypesPage() {
       <CommonInputForm<LeaveTypeFormValues>
         open={open}
         title={editing ? 'Edit leave type' : 'Add leave type'}
-        fields={LEAVE_TYPE_FORM_CONFIG}
+        fields={visibleFormFields}
         values={formValues}
         errors={formErrors}
         submitError={submitError}
