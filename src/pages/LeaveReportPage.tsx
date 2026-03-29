@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Box, FormControl, InputLabel, MenuItem, Select, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
-import { employeesApi, leaveReportsApi } from '../api/client'
+import { employeesApi, leaveReportsApi, leaveTypesApi } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import type { Employee } from '../types/org'
-import type { LeaveLedgerAction, LeaveLedgerRow } from '../types/hrms'
+import type { LeaveLedgerAction, LeaveLedgerRow, LeaveType } from '../types/hrms'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
 
 const ACTION_LABELS: Record<LeaveLedgerAction, string> = {
@@ -34,9 +34,62 @@ export default function LeaveReportPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [employeeId, setEmployeeId] = useState<number | ''>('')
   const [year, setYear] = useState(new Date().getFullYear())
+  const [leaveTypeId, setLeaveTypeId] = useState<number | ''>('')
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [rows, setRows] = useState<LeaveLedgerRow[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (employeeId === '') {
+      setLeaveTypes([])
+      return
+    }
+    let cancelled = false
+    leaveReportsApi
+      .ledgerFilterLeaveTypes(employeeId as number, year)
+      .then((types) => {
+        if (cancelled) return
+        const list = Array.isArray(types) ? types : []
+        if (list.length === 0) {
+          const fallback = isHr ? leaveTypesApi.listAll() : leaveTypesApi.listActive()
+          return fallback.then((fb) => {
+            if (cancelled) return
+            const merged = Array.isArray(fb) ? fb : []
+            setLeaveTypes(merged)
+            setLeaveTypeId((current) => {
+              if (current === '') return ''
+              return merged.some((t) => t.id === current) ? current : ''
+            })
+          })
+        }
+        setLeaveTypes(list)
+        setLeaveTypeId((current) => {
+          if (current === '') return ''
+          return list.some((t) => t.id === current) ? current : ''
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        const fallback = isHr ? leaveTypesApi.listAll() : leaveTypesApi.listActive()
+        fallback
+          .then((fb) => {
+            if (cancelled) return
+            const merged = Array.isArray(fb) ? fb : []
+            setLeaveTypes(merged)
+            setLeaveTypeId((current) => {
+              if (current === '') return ''
+              return merged.some((t) => t.id === current) ? current : ''
+            })
+          })
+          .catch(() => {
+            if (!cancelled) setLeaveTypes([])
+          })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [employeeId, year, isHr])
 
   useEffect(() => {
     if (!isHr) return
@@ -60,14 +113,14 @@ export default function LeaveReportPage() {
     setLoading(true)
     setError('')
     leaveReportsApi
-      .ledger(employeeId as number, year)
+      .ledger(employeeId as number, year, leaveTypeId === '' ? null : leaveTypeId)
       .then((data) => {
         setRows(data)
         setError('')
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed'))
       .finally(() => setLoading(false))
-  }, [employeeId, year])
+  }, [employeeId, year, leaveTypeId])
 
   return (
     <PageLayout
@@ -122,6 +175,22 @@ export default function LeaveReportPage() {
           onChange={(e) => setYear(Number(e.target.value))}
           sx={{ width: 120 }}
         />
+        <FormControl size="small" sx={{ minWidth: 240 }} disabled={employeeId === ''}>
+          <InputLabel>Leave type</InputLabel>
+          <Select
+            label="Leave type"
+            value={leaveTypeId}
+            onChange={(e) => setLeaveTypeId(e.target.value === '' ? '' : Number(e.target.value))}
+          >
+            <MenuItem value="">All types</MenuItem>
+            {leaveTypes.map((t) => (
+              <MenuItem key={t.id} value={t.id}>
+                {t.name} ({t.code})
+                {!t.active ? ' — inactive' : ''}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       {loading ? (

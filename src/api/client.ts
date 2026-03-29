@@ -315,8 +315,19 @@ export const leaveBalancesApi = {
 }
 
 export const leaveReportsApi = {
-  ledger: (employeeId: number, year: number) =>
-    apiFetch<LeaveLedgerRow[]>(`/leave/reports/ledger?employeeId=${employeeId}&year=${year}`).then(handleOk),
+  /** Active types + any type with ledger data for this employee/year (e.g. inactive with history). */
+  ledgerFilterLeaveTypes: (employeeId: number, year: number) => {
+    const q = new URLSearchParams({ employeeId: String(employeeId), year: String(year) })
+    return apiFetch<LeaveType[]>(`/leave/reports/ledger-filter-types?${q.toString()}`).then(handleOk)
+  },
+  ledger: (employeeId: number, year: number, leaveTypeId?: number | null) => {
+    const q = new URLSearchParams({
+      employeeId: String(employeeId),
+      year: String(year),
+    })
+    if (leaveTypeId != null) q.set('leaveTypeId', String(leaveTypeId))
+    return apiFetch<LeaveLedgerRow[]>(`/leave/reports/ledger?${q.toString()}`).then(handleOk)
+  },
 }
 
 export const leaveRequestsApi = {

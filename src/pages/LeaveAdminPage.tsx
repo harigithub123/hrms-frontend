@@ -2,13 +2,11 @@ import { useEffect, useState } from 'react'
 import {
   Alert,
   Box,
-  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
-  FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
@@ -37,16 +35,6 @@ export default function LeaveAdminPage() {
   const [adjustments, setAdjustments] = useState<LeaveBalanceAdjustment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const [typeOpen, setTypeOpen] = useState(false)
-  const [tName, setTName] = useState('')
-  const [tCode, setTCode] = useState('')
-  const [tDays, setTDays] = useState('18')
-  const [tCarry, setTCarry] = useState(false)
-  const [tMaxPerYear, setTMaxPerYear] = useState('')
-  const [tMaxCap, setTMaxCap] = useState('')
-  const [tPaid, setTPaid] = useState(true)
-  const [tActive, setTActive] = useState(true)
 
   const [adjOpen, setAdjOpen] = useState(false)
   const [adjTypeId, setAdjTypeId] = useState<number | ''>('')
@@ -82,30 +70,6 @@ export default function LeaveAdminPage() {
     )
   }, [employeeId, year])
 
-  const saveType = async () => {
-    try {
-      await leaveTypesApi.create({
-        name: tName,
-        code: tCode,
-        daysPerYear: Number(tDays),
-        carryForward: tCarry,
-        maxCarryForwardPerYear:
-          tCarry && tMaxPerYear.trim() !== '' ? Number(tMaxPerYear) : null,
-        maxCarryForward: tCarry && tMaxCap.trim() !== '' ? Number(tMaxCap) : null,
-        paid: tPaid,
-        active: tActive,
-      })
-      setTypeOpen(false)
-      setTName('')
-      setTCode('')
-      setTMaxPerYear('')
-      setTMaxCap('')
-      loadTypes()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
-    }
-  }
-
   const saveAdjustment = async () => {
     if (employeeId === '' || adjTypeId === '') return
     const delta = Number(adjDelta)
@@ -140,18 +104,7 @@ export default function LeaveAdminPage() {
   if (loading) return <LoadingSpinner />
 
   return (
-    <PageLayout
-      actions={
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <AppButton variant="outlined" onClick={() => setTypeOpen(true)}>
-            Add leave type
-          </AppButton>
-          <AppButton variant="contained" onClick={() => setAdjOpen(true)} disabled={employeeId === ''}>
-            Add leave / carry-forward
-          </AppButton>
-        </Box>
-      }
-    >
+    <PageLayout>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
@@ -222,7 +175,11 @@ export default function LeaveAdminPage() {
           value={year}
           onChange={(e) => setYear(Number(e.target.value))}
           sx={{ width: 100 }}
+          size="small"
         />
+        <AppButton variant="contained" onClick={() => setAdjOpen(true)} disabled={employeeId === ''}>
+          Allocate Leave
+        </AppButton>
       </Box>
 
       <AppTypography variant="subtitle2" sx={{ mb: 1 }}>
@@ -317,62 +274,8 @@ export default function LeaveAdminPage() {
         </TableBody>
       </Table>
 
-      <Dialog open={typeOpen} onClose={() => setTypeOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Add leave type</DialogTitle>
-        <DialogContent>
-          <AppTextField label="Name" value={tName} onChange={(e) => setTName(e.target.value)} margin="dense" fullWidth />
-          <AppTextField label="Code" value={tCode} onChange={(e) => setTCode(e.target.value)} margin="dense" fullWidth />
-          <AppTextField
-            label="Days per year"
-            value={tDays}
-            onChange={(e) => setTDays(e.target.value)}
-            margin="dense"
-            fullWidth
-          />
-          <FormControlLabel
-            control={<Checkbox checked={tCarry} onChange={(e) => setTCarry(e.target.checked)} />}
-            label="Carry forward"
-          />
-          {tCarry && (
-            <>
-              <AppTextField
-                label="Max carry per year (optional)"
-                value={tMaxPerYear}
-                onChange={(e) => setTMaxPerYear(e.target.value)}
-                margin="dense"
-                fullWidth
-                helperText="Max days moved from one year into the next. Empty = no limit."
-                type="number"
-                inputProps={{ min: 0, step: 0.5 }}
-              />
-              <AppTextField
-                label="Max carry-forward balance (optional)"
-                value={tMaxCap}
-                onChange={(e) => setTMaxCap(e.target.value)}
-                margin="dense"
-                fullWidth
-                helperText="Ceiling on total carried balance. Empty = no limit."
-                type="number"
-                inputProps={{ min: 0, step: 0.5 }}
-              />
-            </>
-          )}
-          <FormControlLabel control={<Checkbox checked={tPaid} onChange={(e) => setTPaid(e.target.checked)} />} label="Paid" />
-          <FormControlLabel
-            control={<Checkbox checked={tActive} onChange={(e) => setTActive(e.target.checked)} />}
-            label="Active"
-          />
-        </DialogContent>
-        <DialogActions>
-          <AppButton onClick={() => setTypeOpen(false)}>Cancel</AppButton>
-          <AppButton variant="contained" onClick={saveType}>
-            Save
-          </AppButton>
-        </DialogActions>
-      </Dialog>
-
       <Dialog open={adjOpen} onClose={() => setAdjOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add leave / carry-forward</DialogTitle>
+        <DialogTitle>Allocate Leave</DialogTitle>
         <DialogContent>
           <AppTypography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             Use <strong>Allocation</strong> for grants or corrections to annual allocation. Use{' '}
