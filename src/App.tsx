@@ -20,6 +20,8 @@ import PayslipsPage from './pages/PayslipsPage'
 import OnboardingPage from './pages/OnboardingPage'
 import OffersPage from './pages/OffersPage'
 import CompensationPage from './pages/CompensationPage'
+import LeaveTypesPage from './pages/leave-types/LeaveTypesPage'
+import SalaryComponentsPage from './pages/salary-components/SalaryComponentsPage'
 import AdvancesPage from './pages/AdvancesPage'
 import AppShell from './components/layout/AppShell'
 import './App.css'
@@ -62,6 +64,8 @@ function App() {
             <Route path="/hr/onboarding" element={<OnboardingPage />} />
             <Route path="/hr/offers" element={<OffersPage />} />
             <Route path="/hr/compensation" element={<CompensationPage />} />
+            <Route path="/hr/leave-types" element={<LeaveTypesPage />} />
+            <Route path="/hr/salary-components" element={<SalaryComponentsPage />} />
             <Route path="/advances" element={<AdvancesPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>

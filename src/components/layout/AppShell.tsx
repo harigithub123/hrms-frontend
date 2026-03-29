@@ -64,6 +64,8 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Departments', path: '/departments', roles: ['HR', 'ADMIN'] },
       { label: 'Designations', path: '/designations', roles: ['HR', 'ADMIN'] },
+      { label: 'Leave types', path: '/hr/leave-types', roles: ['HR', 'ADMIN'] },
+      { label: 'Salary components', path: '/hr/salary-components', roles: ['HR', 'ADMIN'] },
       { label: 'Employees', path: '/employees', roles: ['HR', 'ADMIN'] },
     ],
   },

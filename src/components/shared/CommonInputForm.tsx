@@ -19,8 +19,11 @@ export type GenericFormFieldConfig<TValues extends Record<string, string>> = {
   rows?: number
   maxLength?: number
   /** Defaults to text; use `select` with `selectOptions`. */
-  type?: 'text' | 'email' | 'date' | 'select'
+  type?: 'text' | 'email' | 'date' | 'select' | 'number'
   selectOptions?: Array<{ value: string; label: string }>
+  min?: number
+  max?: number
+  step?: number
 }
 
 type CommonInputFormProps<TValues extends Record<string, string>> = {
@@ -60,6 +63,28 @@ export function CommonInputForm<TValues extends Record<string, string>>({
           </AppTypography>
         )}
         {fields.map((field) => {
+          if (field.type === 'number') {
+            return (
+              <AppTextField
+                key={field.name}
+                label={field.label}
+                type="number"
+                value={values[field.name]}
+                onChange={(event) => onFieldChange(field.name, event.target.value)}
+                onBlur={() => onFieldBlur(field.name)}
+                error={!!errors[field.name]}
+                helperText={errors[field.name]}
+                margin="dense"
+                required={field.required}
+                inputProps={{
+                  min: field.min,
+                  max: field.max,
+                  step: field.step ?? 1,
+                }}
+              />
+            )
+          }
+
           if (field.type === 'select') {
             return (
               <FormControl

@@ -13,6 +13,8 @@ export function getAppBarTitle(pathname: string): string {
     { prefix: '/payslips', label: 'My payslips' },
     { prefix: '/attendance', label: 'Attendance' },
     { prefix: '/payroll', label: 'Payroll' },
+    { prefix: '/hr/leave-types', label: 'Leave types' },
+    { prefix: '/hr/salary-components', label: 'Salary components' },
     { prefix: '/hr/onboarding', label: 'Onboarding' },
     { prefix: '/hr/offers', label: 'Offers' },
     { prefix: '/hr/compensation', label: 'Compensation' },
