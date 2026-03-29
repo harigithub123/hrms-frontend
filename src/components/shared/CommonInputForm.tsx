@@ -1,4 +1,14 @@
-import { Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material'
+import {
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormHelperText,
+  InputLabel,
+  MenuItem,
+  Select,
+} from '@mui/material'
 import { AppButton, AppTextField, AppTypography } from '../ui'
 
 export type GenericFormFieldConfig<TValues extends Record<string, string>> = {
@@ -8,6 +18,9 @@ export type GenericFormFieldConfig<TValues extends Record<string, string>> = {
   multiline?: boolean
   rows?: number
   maxLength?: number
+  /** Defaults to text; use `select` with `selectOptions`. */
+  type?: 'text' | 'email' | 'date' | 'select'
+  selectOptions?: Array<{ value: string; label: string }>
 }
 
 type CommonInputFormProps<TValues extends Record<string, string>> = {
@@ -46,21 +59,60 @@ export function CommonInputForm<TValues extends Record<string, string>>({
             {submitError}
           </AppTypography>
         )}
-        {fields.map((field) => (
-          <AppTextField
-            key={field.name}
-            label={field.label}
-            value={values[field.name]}
-            onChange={(event) => onFieldChange(field.name, event.target.value)}
-            onBlur={() => onFieldBlur(field.name)}
-            error={!!errors[field.name]}
-            helperText={errors[field.name]}
-            margin="dense"
-            required={field.required}
-            multiline={field.multiline}
-            rows={field.rows}
-          />
-        ))}
+        {fields.map((field) => {
+          if (field.type === 'select') {
+            return (
+              <FormControl
+                key={field.name}
+                fullWidth
+                size="small"
+                margin="dense"
+                error={!!errors[field.name]}
+                required={field.required}
+              >
+                <InputLabel>{field.label}</InputLabel>
+                <Select
+                  label={field.label}
+                  value={values[field.name]}
+                  onChange={(e) => onFieldChange(field.name, e.target.value as string)}
+                  onBlur={() => onFieldBlur(field.name)}
+                >
+                  <MenuItem value="">
+                    <em>—</em>
+                  </MenuItem>
+                  {(field.selectOptions ?? []).map((opt) => (
+                    <MenuItem key={`${field.name}-${opt.value}`} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors[field.name] ? <FormHelperText>{errors[field.name]}</FormHelperText> : null}
+              </FormControl>
+            )
+          }
+
+          const inputType =
+            field.type === 'date' ? 'date' : field.type === 'email' ? 'email' : 'text'
+
+          return (
+            <AppTextField
+              key={field.name}
+              label={field.label}
+              type={inputType}
+              value={values[field.name]}
+              onChange={(event) => onFieldChange(field.name, event.target.value)}
+              onBlur={() => onFieldBlur(field.name)}
+              error={!!errors[field.name]}
+              helperText={errors[field.name]}
+              margin="dense"
+              required={field.required}
+              multiline={field.multiline}
+              rows={field.rows}
+              inputProps={field.maxLength ? { maxLength: field.maxLength } : undefined}
+              InputLabelProps={inputType === 'date' ? { shrink: true } : undefined}
+            />
+          )
+        })}
       </DialogContent>
       <DialogActions>
         <AppButton onClick={onClose}>Cancel</AppButton>
