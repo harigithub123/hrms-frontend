@@ -49,7 +49,8 @@ export default function PayslipsPage() {
         </Alert>
       )}
       <AppTypography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Requires your user to be linked to an employee. HR can set this under User ↔ Employee.
+        Payslips are tied to your employee record. A login account is created automatically when HR adds you as an
+        employee.
       </AppTypography>
       <Table size="small">
         <TableHead>

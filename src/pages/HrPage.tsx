@@ -21,9 +21,6 @@ export default function HrPage() {
         <AppButton component={RouterLink} to="/employees" variant="outlined">
           Employees
         </AppButton>
-        <AppButton component={RouterLink} to="/users/link" variant="outlined">
-          User ↔ Employee
-        </AppButton>
         <AppButton component={RouterLink} to="/leave/admin" variant="outlined">
           Leave admin
         </AppButton>

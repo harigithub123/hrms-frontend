@@ -47,7 +47,8 @@ export default function LoginPage() {
             HRMS Sign in
           </AppTypography>
           <AppTypography variant="body2" color="text.secondary" sx={{ mb: 2 }} align="center">
-            Enter your credentials. Default: admin / password
+            Employees: use your <strong>employee ID</strong> as username (same number as in HR), or your <strong>work
+            email</strong>. Admins: default <strong>admin</strong> / <strong>password</strong>.
           </AppTypography>
           <form onSubmit={handleSubmit}>
             {error && (
@@ -56,13 +57,14 @@ export default function LoginPage() {
               </Alert>
             )}
             <AppTextField
-              label="Username"
+              label="Employee ID or email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               margin="dense"
               required
               autoComplete="username"
               autoFocus
+              helperText="Employee accounts use the numeric employee ID; you can also sign in with your email after HR updates it."
             />
             <AppTextField
               label="Password"

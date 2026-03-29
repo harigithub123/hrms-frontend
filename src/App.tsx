@@ -15,7 +15,7 @@ import LeaveAdminPage from './pages/LeaveAdminPage'
 import LeaveApprovalsPage from './pages/LeaveApprovalsPage'
 import AttendancePage from './pages/AttendancePage'
 import PayrollPage from './pages/PayrollPage'
-import UserLinkPage from './pages/UserLinkPage'
+import UserRolesPage from './pages/UserRolesPage'
 import PayslipsPage from './pages/PayslipsPage'
 import OnboardingPage from './pages/OnboardingPage'
 import OffersPage from './pages/OffersPage'
@@ -50,7 +50,14 @@ function App() {
             <Route path="/leave/approvals" element={<LeaveApprovalsPage />} />
             <Route path="/attendance" element={<AttendancePage />} />
             <Route path="/payroll" element={<PayrollPage />} />
-            <Route path="/users/link" element={<UserLinkPage />} />
+            <Route
+              path="/admin/user-roles"
+              element={
+                <ProtectedRoute requiredRoles={['ADMIN']}>
+                  <UserRolesPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/payslips" element={<PayslipsPage />} />
             <Route path="/hr/onboarding" element={<OnboardingPage />} />
             <Route path="/hr/offers" element={<OffersPage />} />

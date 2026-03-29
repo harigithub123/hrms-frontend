@@ -30,6 +30,7 @@ import type {
   SalaryComponentKind,
   SalaryStructure,
   UserSummary,
+  RoleInfo,
 } from '../types/hrms'
 
 const API_BASE = '/api'
@@ -247,11 +248,15 @@ export const employeesApi = {
 
 export const usersApi = {
   list: () => apiFetch<UserSummary[]>('/users').then(handleOk),
-  linkEmployee: (userId: number, employeeId: number | null) =>
-    apiFetch<void>(`/users/${userId}/employee`, {
+  updateRoles: (userId: number, roles: string[]) =>
+    apiFetch<void>(`/users/${userId}/roles`, {
       method: 'PUT',
-      body: JSON.stringify({ employeeId }),
+      body: JSON.stringify({ roles }),
     }).then(handleOk),
+}
+
+export const rolesApi = {
+  list: () => apiFetch<RoleInfo[]>('/roles').then(handleOk),
 }
 
 export const holidaysApi = {

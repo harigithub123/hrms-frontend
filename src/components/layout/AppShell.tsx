@@ -65,7 +65,6 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Departments', path: '/departments', roles: ['HR', 'ADMIN'] },
       { label: 'Designations', path: '/designations', roles: ['HR', 'ADMIN'] },
       { label: 'Employees', path: '/employees', roles: ['HR', 'ADMIN'] },
-      { label: 'User ↔ Employee', path: '/users/link', roles: ['HR', 'ADMIN'] },
     ],
   },
   {
@@ -85,7 +84,10 @@ const NAV_SECTIONS: NavSection[] = [
     id: 'admin',
     label: 'Administration',
     collapsible: true,
-    items: [{ label: 'System admin', path: '/admin', roles: ['ADMIN'] }],
+    items: [
+      { label: 'System admin', path: '/admin', roles: ['ADMIN'] },
+      { label: 'User roles', path: '/admin/user-roles', roles: ['ADMIN'] },
+    ],
   },
 ]
 

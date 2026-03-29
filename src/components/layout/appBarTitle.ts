@@ -7,7 +7,7 @@ export function getAppBarTitle(pathname: string): string {
     { prefix: '/leave/admin', label: 'Leave admin' },
     { prefix: '/leave/calendar', label: 'Leave' },
     { prefix: '/leave/team', label: 'Leave' },
-    { prefix: '/users/link', label: 'User ↔ Employee' },
+    { prefix: '/admin/user-roles', label: 'User roles' },
     { prefix: '/designations', label: 'Designations' },
     { prefix: '/employees', label: 'Employees' },
     { prefix: '/payslips', label: 'My payslips' },

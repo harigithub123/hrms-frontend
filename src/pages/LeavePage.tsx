@@ -209,8 +209,7 @@ export default function LeavePage() {
     >
       {!canApply && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Your login is not linked to an employee record. Ask HR to link your user (User accounts) before applying for
-          leave.
+          Your account is not tied to an employee record yet. Ask HR to add you as an employee so you can apply for leave.
         </Alert>
       )}
       {error && (
@@ -319,8 +318,8 @@ export default function LeavePage() {
                     </Box>
                     {hrPick && (
                       <AppTypography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                        As HR/Admin without a linked employee, create requests via API with <code>employeeId</code>, or
-                        link your user to an employee.
+                        As HR/Admin without an employee profile, create requests via API with <code>employeeId</code>, or
+                        use an employee login account.
                       </AppTypography>
                     )}
                   </Paper>

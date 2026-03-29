@@ -144,6 +144,13 @@ export interface UserSummary {
   id: number
   username: string
   employeeId: number | null
+  /** Spring Security role names, e.g. ROLE_EMPLOYEE, ROLE_HR */
+  roles: string[]
+}
+
+export interface RoleInfo {
+  id: number
+  name: string
 }
 
 /** Compensation package (authoring; sync to salary structure from UI) */
