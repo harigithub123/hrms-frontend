@@ -27,6 +27,7 @@ export interface Employee {
   firstName: string
   lastName: string
   email: string | null
+  mobileNumber?: string | null
   departmentId: number | null
   departmentName: string | null
   designationId: number | null
@@ -43,6 +44,7 @@ export interface EmployeeRequest {
   firstName: string
   lastName: string
   email?: string | null
+  mobileNumber?: string | null
   departmentId?: number | null
   designationId?: number | null
   managerId?: number | null

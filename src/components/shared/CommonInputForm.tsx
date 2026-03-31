@@ -9,6 +9,7 @@ import {
   MenuItem,
   Select,
 } from '@mui/material'
+import type { ReactNode } from 'react'
 import { AppButton, AppTextField, AppTypography } from '../ui'
 
 export type GenericFormFieldConfig<TValues extends Record<string, string>> = {
@@ -33,6 +34,7 @@ type CommonInputFormProps<TValues extends Record<string, string>> = {
   values: TValues
   errors: Partial<Record<keyof TValues & string, string>>
   submitError?: string
+  extraContent?: ReactNode
   onFieldChange: (name: keyof TValues & string, value: string) => void
   onFieldBlur: (name: keyof TValues & string) => void
   onClose: () => void
@@ -47,6 +49,7 @@ export function CommonInputForm<TValues extends Record<string, string>>({
   values,
   errors,
   submitError,
+  extraContent,
   onFieldChange,
   onFieldBlur,
   onClose,
@@ -138,6 +141,7 @@ export function CommonInputForm<TValues extends Record<string, string>>({
             />
           )
         })}
+        {extraContent}
       </DialogContent>
       <DialogActions>
         <AppButton onClick={onClose}>Cancel</AppButton>

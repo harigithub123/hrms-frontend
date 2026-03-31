@@ -215,14 +215,16 @@ export interface OfferTemplate {
   createdAt: string
 }
 
-export type JobOfferStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED'
+export type JobOfferStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'DECLINED' | 'JOINED' | 'EXPIRED'
 
 export interface JobOffer {
   id: number
   templateId: number | null
   candidateName: string
   candidateEmail: string | null
+  candidateMobile: string | null
   status: JobOfferStatus
+  employeeType: string | null
   departmentId: number | null
   departmentName: string | null
   designationId: number | null
@@ -230,10 +232,20 @@ export interface JobOffer {
   managerId: number | null
   managerName: string | null
   joinDate: string | null
+  offerReleaseDate: string | null
+  probationPeriodMonths: number | null
+  joiningBonus: string | number | null
+  yearlyBonus: string | number | null
   annualCtc: string | number | null
   currency: string
   bodyHtml: string | null
   pdfGeneratedAt: string | null
+  sentAt: string | null
+  acceptedAt: string | null
+  rejectedAt: string | null
+  joinedAt: string | null
+  lastEmailStatus: string | null
+  employeeId: number | null
   createdAt: string
 }
 

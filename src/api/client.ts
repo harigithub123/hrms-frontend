@@ -433,21 +433,66 @@ export const offersApi = {
   updateTemplate: (id: number, body: { name: string; bodyHtml: string; active: boolean }) =>
     apiFetch<OfferTemplate>(`/offers/templates/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
   listOffers: () => apiFetch<JobOffer[]>('/offers').then(handleOk),
+  listOffersPaged: (params: {
+    page: number
+    size: number
+    status?: string | null
+    employeeType?: string | null
+    q?: string | null
+    departmentId?: number | null
+    designationId?: number | null
+  }) => {
+    const q = new URLSearchParams()
+    q.set('page', String(params.page))
+    q.set('size', String(params.size))
+    if (params.status) q.set('status', params.status)
+    if (params.employeeType) q.set('employeeType', params.employeeType)
+    if (params.q) q.set('q', params.q)
+    if (params.departmentId != null) q.set('departmentId', String(params.departmentId))
+    if (params.designationId != null) q.set('designationId', String(params.designationId))
+    return apiFetch<PagedResponse<JobOffer>>(`/offers/paged?${q.toString()}`).then(handleOk)
+  },
   getOffer: (id: number) => apiFetch<JobOffer>(`/offers/${id}`).then(handleOk),
   createOffer: (body: {
     templateId?: number | null
     candidateName: string
     candidateEmail?: string | null
+    candidateMobile?: string | null
+    employeeType?: string | null
     departmentId?: number | null
     designationId?: number | null
     managerId?: number | null
     joinDate?: string | null
+    offerReleaseDate?: string | null
+    probationPeriodMonths?: number | null
+    joiningBonus?: number | null
+    yearlyBonus?: number | null
     annualCtc?: number | null
     currency?: string | null
+    compensationLines?: { componentId: number; amount: number }[]
   }) => apiFetch<JobOffer>('/offers', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
   send: (id: number) => apiFetch<JobOffer>(`/offers/${id}/send`, { method: 'POST' }).then(handleOk),
+  resend: (id: number) => apiFetch<JobOffer>(`/offers/${id}/resend`, { method: 'POST' }).then(handleOk),
   accept: (id: number) => apiFetch<JobOffer>(`/offers/${id}/accept`, { method: 'POST' }).then(handleOk),
+  reject: (id: number) => apiFetch<JobOffer>(`/offers/${id}/reject`, { method: 'POST' }).then(handleOk),
+  join: (id: number) => apiFetch<JobOffer>(`/offers/${id}/join`, { method: 'POST' }).then(handleOk),
   downloadPdf: (id: number) => fetchPdf(`/offers/${id}/pdf`),
+  exportCsv: (params: {
+    status?: string | null
+    employeeType?: string | null
+    q?: string | null
+    departmentId?: number | null
+    designationId?: number | null
+  }) => {
+    const q = new URLSearchParams()
+    if (params.status) q.set('status', params.status)
+    if (params.employeeType) q.set('employeeType', params.employeeType)
+    if (params.q) q.set('q', params.q)
+    if (params.departmentId != null) q.set('departmentId', String(params.departmentId))
+    if (params.designationId != null) q.set('designationId', String(params.designationId))
+    const suffix = q.toString() ? `?${q.toString()}` : ''
+    return fetchPdf(`/offers/export.csv${suffix}`)
+  },
 }
 
 export const onboardingApi = {
