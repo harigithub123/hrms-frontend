@@ -23,7 +23,6 @@ import type {
   LeaveRequest,
   LeaveRequestStatus,
   LeaveType,
-  OfferTemplate,
   OnboardingCase,
   OnboardingTask,
   PayRun,
@@ -427,11 +426,6 @@ export const compensationApi = {
 }
 
 export const offersApi = {
-  listTemplates: () => apiFetch<OfferTemplate[]>('/offers/templates').then(handleOk),
-  createTemplate: (body: { name: string; bodyHtml: string; active: boolean }) =>
-    apiFetch<OfferTemplate>('/offers/templates', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
-  updateTemplate: (id: number, body: { name: string; bodyHtml: string; active: boolean }) =>
-    apiFetch<OfferTemplate>(`/offers/templates/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
   listOffers: () => apiFetch<JobOffer[]>('/offers').then(handleOk),
   listOffersPaged: (params: {
     page: number
@@ -454,7 +448,6 @@ export const offersApi = {
   },
   getOffer: (id: number) => apiFetch<JobOffer>(`/offers/${id}`).then(handleOk),
   createOffer: (body: {
-    templateId?: number | null
     candidateName: string
     candidateEmail?: string | null
     candidateMobile?: string | null

@@ -11,7 +11,7 @@ import {
   Stack,
 } from '@mui/material'
 import { departmentsApi, designationsApi, employeesApi, offersApi, payrollApi } from '../api/client'
-import type { JobOffer, OfferTemplate, SalaryComponent } from '../types/hrms'
+import type { JobOffer, SalaryComponent } from '../types/hrms'
 import type { Department, Designation, Employee } from '../types/org'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
 import { CommonInputForm, DataGrid } from '../components/shared'
@@ -21,20 +21,12 @@ import { EMPTY_OFFER_FORM, getOfferFormFields, OFFER_TEXT_RULES, type OfferFormV
 
 export default function OffersPage() {
   const [refreshToken, setRefreshToken] = useState(0)
-  const [templates, setTemplates] = useState<OfferTemplate[]>([])
   const [depts, setDepts] = useState<Department[]>([])
   const [desigs, setDesigs] = useState<Designation[]>([])
   const [emps, setEmps] = useState<Employee[]>([])
   const [components, setComponents] = useState<SalaryComponent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const [tab, setTab] = useState<'offers' | 'templates'>('offers')
-
-  const [tplName, setTplName] = useState('')
-  const [tplBody, setTplBody] = useState(
-    '<p>Dear {{candidateName}},</p><p>Role: {{designation}} in {{department}}. Start {{joinDate}}. CTC {{currency}} {{annualCtc}}.</p>',
-  )
 
   const [filters, setFilters] = useState<{
     status: string
@@ -60,14 +52,12 @@ export default function OffersPage() {
   const load = () => {
     setLoading(true)
     Promise.all([
-      offersApi.listTemplates(),
       departmentsApi.listAll(),
       designationsApi.listAll(),
       employeesApi.listAll(),
       payrollApi.componentsAll(),
     ])
-      .then(([t, d, de, e, comps]) => {
-        setTemplates(t)
+      .then(([d, de, e, comps]) => {
         setDepts(d)
         setDesigs(de)
         setEmps(e)
@@ -81,16 +71,6 @@ export default function OffersPage() {
   useEffect(() => {
     load()
   }, [])
-
-  const saveTemplate = async () => {
-    try {
-      await offersApi.createTemplate({ name: tplName.trim(), bodyHtml: tplBody, active: true })
-      setTplName('')
-      load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
-    }
-  }
 
   const downloadPdf = async (id: number) => {
     try {
@@ -142,10 +122,6 @@ export default function OffersPage() {
     [filters],
   )
 
-  const templateOptions = useMemo(
-    () => templates.map((t) => ({ value: String(t.id), label: t.name })),
-    [templates],
-  )
   const departmentOptions = useMemo(() => depts.map((d) => ({ value: String(d.id), label: d.name })), [depts])
   const designationOptions = useMemo(() => desigs.map((d) => ({ value: String(d.id), label: d.name })), [desigs])
   const managerOptions = useMemo(
@@ -156,12 +132,11 @@ export default function OffersPage() {
   const formFields = useMemo(
     () =>
       getOfferFormFields({
-        templateOptions,
         departmentOptions,
         designationOptions,
         managerOptions,
       }),
-    [templateOptions, departmentOptions, designationOptions, managerOptions],
+    [departmentOptions, designationOptions, managerOptions],
   )
 
   const validateField = useCallback((name: keyof OfferFormValues, value: string): string => {
@@ -226,7 +201,6 @@ export default function OffersPage() {
 
     try {
       await offersApi.createOffer({
-        templateId: parseId(formValues.templateId),
         employeeType: formValues.employeeType || null,
         candidateName: formValues.candidateName.trim(),
         candidateEmail: formValues.candidateEmail.trim() || null,
@@ -314,23 +288,19 @@ export default function OffersPage() {
 
   return (
     <PageLayout
-      title="Offers & templates"
+      title="Offers"
       maxWidth="none"
       actions={
         <Box sx={{ display: 'flex', gap: 1 }}>
           <AppButton component={Link} to="/hr" variant="outlined">
             Back
           </AppButton>
-          {tab === 'offers' && (
-            <>
-              <AppButton variant="outlined" onClick={exportCsv}>
-                Export CSV
-              </AppButton>
-              <AppButton variant="contained" onClick={openCreate}>
-                Create offer
-              </AppButton>
-            </>
-          )}
+          <AppButton variant="outlined" onClick={exportCsv}>
+            Export CSV
+          </AppButton>
+          <AppButton variant="contained" onClick={openCreate}>
+            Create offer
+          </AppButton>
         </Box>
       }
     >
@@ -339,145 +309,111 @@ export default function OffersPage() {
           {error}
         </Alert>
       )}
-      <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-        <AppButton variant={tab === 'offers' ? 'contained' : 'outlined'} onClick={() => setTab('offers')}>
-          Offers
-        </AppButton>
-        <AppButton variant={tab === 'templates' ? 'contained' : 'outlined'} onClick={() => setTab('templates')}>
-          Templates
-        </AppButton>
-      </Stack>
-
-      {tab === 'templates' && (
-        <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-          <AppTypography variant="subtitle1" fontWeight={700} gutterBottom>
-            New template
-          </AppTypography>
-          <AppTextField label="Name" value={tplName} onChange={(e) => setTplName(e.target.value)} fullWidth sx={{ mb: 1 }} />
-          <AppTextField
-            label="Body HTML (placeholders: {{candidateName}}, {{department}}, {{designation}}, {{managerName}}, {{joinDate}}, {{annualCtc}}, {{currency}})"
-            value={tplBody}
-            onChange={(e) => setTplBody(e.target.value)}
-            fullWidth
-            multiline
-            minRows={4}
-            sx={{ mb: 1 }}
-          />
-          <AppButton variant="contained" onClick={saveTemplate}>
-            Save template
-          </AppButton>
-        </Paper>
-      )}
-
-      {tab === 'offers' && (
-        <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                label="Status"
-                value={filters.status}
-                onChange={(e) => {
-                  setFilters((p) => ({ ...p, status: e.target.value }))
-                  setRefreshToken((t) => t + 1)
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="DRAFT">DRAFT</MenuItem>
-                <MenuItem value="SENT">SENT</MenuItem>
-                <MenuItem value="ACCEPTED">ACCEPTED</MenuItem>
-                <MenuItem value="REJECTED">REJECTED</MenuItem>
-                <MenuItem value="JOINED">JOINED</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Employee type</InputLabel>
-              <Select
-                label="Employee type"
-                value={filters.employeeType}
-                onChange={(e) => {
-                  setFilters((p) => ({ ...p, employeeType: e.target.value }))
-                  setRefreshToken((t) => t + 1)
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="PERMANENT_FULL_TIME">Permanent - Full time</MenuItem>
-                <MenuItem value="PERMANENT_PART_TIME">Permanent - Part time</MenuItem>
-                <MenuItem value="CONTRACT">Contract</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel>Department</InputLabel>
-              <Select
-                label="Department"
-                value={filters.departmentId}
-                onChange={(e) => {
-                  setFilters((p) => ({ ...p, departmentId: e.target.value === '' ? '' : Number(e.target.value) }))
-                  setRefreshToken((t) => t + 1)
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {depts.map((d) => (
-                  <MenuItem key={d.id} value={d.id}>
-                    {d.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel>Designation</InputLabel>
-              <Select
-                label="Designation"
-                value={filters.designationId}
-                onChange={(e) => {
-                  setFilters((p) => ({ ...p, designationId: e.target.value === '' ? '' : Number(e.target.value) }))
-                  setRefreshToken((t) => t + 1)
-                }}
-              >
-                <MenuItem value="">All</MenuItem>
-                {desigs.map((d) => (
-                  <MenuItem key={d.id} value={d.id}>
-                    {d.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <AppTextField
-              label="Search (name/email)"
-              size="small"
-              value={filters.q}
-              onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') setRefreshToken((t) => t + 1)
+      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              label="Status"
+              value={filters.status}
+              onChange={(e) => {
+                setFilters((p) => ({ ...p, status: e.target.value }))
+                setRefreshToken((t) => t + 1)
               }}
-              sx={{ minWidth: 240 }}
-            />
-            <AppButton
-              variant="outlined"
-              onClick={() => setRefreshToken((t) => t + 1)}
-              sx={{ flexShrink: 0 }}
             >
-              Apply
-            </AppButton>
-          </Stack>
-        </Paper>
-      )}
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="DRAFT">DRAFT</MenuItem>
+              <MenuItem value="SENT">SENT</MenuItem>
+              <MenuItem value="ACCEPTED">ACCEPTED</MenuItem>
+              <MenuItem value="REJECTED">REJECTED</MenuItem>
+              <MenuItem value="JOINED">JOINED</MenuItem>
+            </Select>
+          </FormControl>
 
-      {tab === 'offers' && (
-        <DataGrid<JobOffer>
-          columnDefs={columnDefs}
-          fetchRows={fetchRows}
-          getRowId={(row) => String(row.id)}
-          refreshToken={refreshToken}
-          defaultPageSize={10}
-          pageSizeOptions={[10, 15, 20, 50]}
-          height="calc(100svh - 230px)"
-        />
-      )}
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Employee type</InputLabel>
+            <Select
+              label="Employee type"
+              value={filters.employeeType}
+              onChange={(e) => {
+                setFilters((p) => ({ ...p, employeeType: e.target.value }))
+                setRefreshToken((t) => t + 1)
+              }}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="PERMANENT_FULL_TIME">Permanent - Full time</MenuItem>
+              <MenuItem value="PERMANENT_PART_TIME">Permanent - Part time</MenuItem>
+              <MenuItem value="CONTRACT">Contract</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <InputLabel>Department</InputLabel>
+            <Select
+              label="Department"
+              value={filters.departmentId}
+              onChange={(e) => {
+                setFilters((p) => ({ ...p, departmentId: e.target.value === '' ? '' : Number(e.target.value) }))
+                setRefreshToken((t) => t + 1)
+              }}
+            >
+              <MenuItem value="">All</MenuItem>
+              {depts.map((d) => (
+                <MenuItem key={d.id} value={d.id}>
+                  {d.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <InputLabel>Designation</InputLabel>
+            <Select
+              label="Designation"
+              value={filters.designationId}
+              onChange={(e) => {
+                setFilters((p) => ({ ...p, designationId: e.target.value === '' ? '' : Number(e.target.value) }))
+                setRefreshToken((t) => t + 1)
+              }}
+            >
+              <MenuItem value="">All</MenuItem>
+              {desigs.map((d) => (
+                <MenuItem key={d.id} value={d.id}>
+                  {d.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <AppTextField
+            label="Search (name/email)"
+            size="small"
+            value={filters.q}
+            onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') setRefreshToken((t) => t + 1)
+            }}
+            sx={{ minWidth: 240 }}
+          />
+          <AppButton
+            variant="outlined"
+            onClick={() => setRefreshToken((t) => t + 1)}
+            sx={{ flexShrink: 0 }}
+          >
+            Apply
+          </AppButton>
+        </Stack>
+      </Paper>
+
+      <DataGrid<JobOffer>
+        columnDefs={columnDefs}
+        fetchRows={fetchRows}
+        getRowId={(row) => String(row.id)}
+        refreshToken={refreshToken}
+        defaultPageSize={10}
+        pageSizeOptions={[10, 15, 20, 50]}
+        height="calc(100svh - 230px)"
+      />
 
       <CommonInputForm<OfferFormValues>
         open={open}

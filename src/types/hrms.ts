@@ -207,19 +207,10 @@ export interface EmployeeCompensation {
   lines: CompensationLine[]
 }
 
-export interface OfferTemplate {
-  id: number
-  name: string
-  bodyHtml: string
-  active: boolean
-  createdAt: string
-}
-
 export type JobOfferStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'DECLINED' | 'JOINED' | 'EXPIRED'
 
 export interface JobOffer {
   id: number
-  templateId: number | null
   candidateName: string
   candidateEmail: string | null
   candidateMobile: string | null

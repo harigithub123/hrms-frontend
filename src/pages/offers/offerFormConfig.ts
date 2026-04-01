@@ -1,7 +1,6 @@
 import type { GenericFormFieldConfig } from '../../components/shared/CommonInputForm'
 
 export type OfferFormValues = {
-  templateId: string
   employeeType: string
   candidateName: string
   candidateEmail: string
@@ -19,7 +18,6 @@ export type OfferFormValues = {
 }
 
 export const EMPTY_OFFER_FORM: OfferFormValues = {
-  templateId: '',
   employeeType: 'PERMANENT_FULL_TIME',
   candidateName: '',
   candidateEmail: '',
@@ -43,13 +41,11 @@ export const OFFER_TEXT_RULES: Array<{ name: keyof OfferFormValues; label: strin
 ]
 
 export function getOfferFormFields(opts: {
-  templateOptions: Array<{ value: string; label: string }>
   departmentOptions: Array<{ value: string; label: string }>
   designationOptions: Array<{ value: string; label: string }>
   managerOptions: Array<{ value: string; label: string }>
 }): Array<GenericFormFieldConfig<OfferFormValues>> {
   return [
-    { name: 'templateId', label: 'Template', type: 'select', selectOptions: opts.templateOptions },
     {
       name: 'employeeType',
       label: 'Employee type',
