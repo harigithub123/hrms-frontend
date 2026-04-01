@@ -40,6 +40,8 @@ type CommonInputFormProps<TValues extends Record<string, string>> = {
   onClose: () => void
   onSubmit: () => void
   submitLabel?: string
+  /** Defaults to `sm`. Use `md` when `extraContent` needs more horizontal space. */
+  maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | false
 }
 
 export function CommonInputForm<TValues extends Record<string, string>>({
@@ -55,9 +57,10 @@ export function CommonInputForm<TValues extends Record<string, string>>({
   onClose,
   onSubmit,
   submitLabel = 'Save',
+  maxWidth = 'sm',
 }: CommonInputFormProps<TValues>) {
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth={maxWidth === false ? false : maxWidth} fullWidth>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         {submitError && (
