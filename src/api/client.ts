@@ -455,7 +455,7 @@ export const offersApi = {
     departmentId?: number | null
     designationId?: number | null
     managerId?: number | null
-    joinDate?: string | null
+    joiningDate?: string | null
     offerReleaseDate?: string | null
     probationPeriodMonths?: number | null
     joiningBonus?: number | null

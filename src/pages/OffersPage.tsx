@@ -208,7 +208,7 @@ export default function OffersPage() {
         departmentId: parseId(formValues.departmentId),
         designationId: parseId(formValues.designationId),
         managerId: parseId(formValues.managerId),
-        joinDate: formValues.joinDate || null,
+        joiningDate: formValues.joinDate || null,
         offerReleaseDate: formValues.offerReleaseDate || null,
         probationPeriodMonths: formValues.probationPeriodMonths ? Number(formValues.probationPeriodMonths) : null,
         joiningBonus: formValues.joiningBonus ? Number(formValues.joiningBonus) : null,

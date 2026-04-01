@@ -222,7 +222,7 @@ export interface JobOffer {
   designationName: string | null
   managerId: number | null
   managerName: string | null
-  joinDate: string | null
+  joiningDate: string | null
   offerReleaseDate: string | null
   probationPeriodMonths: number | null
   joiningBonus: string | number | null
@@ -231,11 +231,6 @@ export interface JobOffer {
   currency: string
   bodyHtml: string | null
   pdfGeneratedAt: string | null
-  sentAt: string | null
-  acceptedAt: string | null
-  rejectedAt: string | null
-  joinedAt: string | null
-  lastEmailStatus: string | null
   employeeId: number | null
   createdAt: string
 }
