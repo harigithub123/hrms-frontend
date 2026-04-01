@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControl,
   InputLabel,
+  IconButton,
   MenuItem,
   Paper,
   Select,
@@ -14,14 +18,22 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material'
+import VisibilityIcon from '@mui/icons-material/Visibility'
 import { compensationApi, employeesApi, payrollApi } from '../api/client'
 import type { EmployeeCompensation, SalaryComponent } from '../types/hrms'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
 import type { Employee } from '../types/org'
 
+function num(v: unknown): number {
+  if (v == null || v === '') return 0
+  const n = typeof v === 'number' ? v : Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
 export default function CompensationPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [empId, setEmpId] = useState<number | ''>('')
+  const [effectiveDate, setEffectiveDate] = useState('')
   const [rows, setRows] = useState<EmployeeCompensation[]>([])
   const [components, setComponents] = useState<SalaryComponent[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,6 +41,8 @@ export default function CompensationPage() {
   const [effFrom, setEffFrom] = useState('')
   const [annualCtc, setAnnualCtc] = useState('')
   const [lines, setLines] = useState<{ componentId: number; amount: string }[]>([{ componentId: 0, amount: '' }])
+  const [openLines, setOpenLines] = useState(false)
+  const [selected, setSelected] = useState<EmployeeCompensation | null>(null)
 
   useEffect(() => {
     Promise.all([employeesApi.listAll(), payrollApi.componentsAll()])
@@ -41,18 +55,28 @@ export default function CompensationPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => {
-    if (empId === '') {
-      setRows([])
-      return
-    }
-    compensationApi
-      .list(empId as number)
-      .then(setRows)
-      .catch(() => setRows([]))
-  }, [empId])
+  const employeeLabel = useMemo(() => {
+    if (empId === '') return '—'
+    const e = employees.find((x) => x.id === empId)
+    return e ? `${e.firstName} ${e.lastName}`.trim() : String(empId)
+  }, [empId, employees])
 
   const addLine = () => setLines((l) => [...l, { componentId: 0, amount: '' }])
+
+  const search = async () => {
+    if (empId === '' || !effectiveDate) {
+      setError('Select employee and effective date')
+      return
+    }
+    try {
+      const res = await compensationApi.search({ employeeId: empId as number, effectiveDate })
+      setRows(res)
+      setError('')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed')
+      setRows([])
+    }
+  }
 
   const save = async () => {
     if (empId === '' || !effFrom) {
@@ -61,7 +85,7 @@ export default function CompensationPage() {
     }
     const parsed = lines
       .filter((l) => l.componentId > 0 && l.amount !== '')
-      .map((l) => ({ componentId: l.componentId, amount: Number(l.amount) }))
+      .map((l) => ({ componentId: l.componentId, amount: Number(l.amount), frequency: 'MONTHLY' as const, payableOn: null }))
     if (parsed.length === 0) {
       setError('Add at least one line')
       return
@@ -75,8 +99,10 @@ export default function CompensationPage() {
       })
       setLines([{ componentId: 0, amount: '' }])
       setAnnualCtc('')
-      const list = await compensationApi.list(empId as number)
-      setRows(list)
+      if (effectiveDate) {
+        const res = await compensationApi.search({ employeeId: empId as number, effectiveDate })
+        setRows(res)
+      }
       setError('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed')
@@ -119,6 +145,24 @@ export default function CompensationPage() {
               ))}
             </Select>
           </FormControl>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
+            <AppTextField
+              label="Effective Date"
+              type="date"
+              value={effectiveDate}
+              onChange={(e) => setEffectiveDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+            />
+            <AppButton variant="outlined" onClick={search} disabled={empId === '' || !effectiveDate}>
+              Search
+            </AppButton>
+            <AppTypography variant="body2" color="text.secondary">
+              {employeeLabel}
+            </AppTypography>
+          </Stack>
+
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap>
             <AppTextField
               label="Effective from"
@@ -183,7 +227,7 @@ export default function CompensationPage() {
       <Paper variant="outlined" sx={{ p: 0, borderRadius: 2, overflow: 'hidden' }}>
         <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
           <AppTypography variant="subtitle1" fontWeight={700}>
-            History
+            Results
           </AppTypography>
         </Box>
         <Table size="small">
@@ -192,14 +236,17 @@ export default function CompensationPage() {
               <TableCell>From</TableCell>
               <TableCell>To</TableCell>
               <TableCell>CTC</TableCell>
-              <TableCell>Lines</TableCell>
+              <TableCell>Monthly payable</TableCell>
+              <TableCell>Annual bonus</TableCell>
+              <TableCell>Joining bonus</TableCell>
+              <TableCell align="center">Lines</TableCell>
               <TableCell align="right">Sync</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <AppTypography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                     No compensation rows.
                   </AppTypography>
@@ -211,7 +258,33 @@ export default function CompensationPage() {
                 <TableCell>{r.effectiveFrom}</TableCell>
                 <TableCell>{r.effectiveTo ?? '—'}</TableCell>
                 <TableCell>{r.annualCtc ?? '—'}</TableCell>
-                <TableCell>{r.lines.length}</TableCell>
+                <TableCell>
+                  {r.lines
+                    .filter((l) => l.frequency === 'MONTHLY')
+                    .reduce((s, l) => s + num(l.amount), 0) || '—'}
+                </TableCell>
+                <TableCell>
+                  {r.lines
+                    .filter((l) => l.frequency === 'YEARLY' && l.componentCode === 'ANNUAL_BONUS')
+                    .reduce((s, l) => s + num(l.amount), 0) || '—'}
+                </TableCell>
+                <TableCell>
+                  {r.lines
+                    .filter((l) => l.frequency === 'ONE_TIME' && l.componentCode === 'JOINING_BONUS')
+                    .reduce((s, l) => s + num(l.amount), 0) || '—'}
+                </TableCell>
+                <TableCell align="center">
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setSelected(r)
+                      setOpenLines(true)
+                    }}
+                    aria-label="View lines"
+                  >
+                    <VisibilityIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
                 <TableCell align="right">
                   <AppButton size="small" variant="outlined" onClick={() => sync(r.id)}>
                     Sync to salary structure
@@ -222,6 +295,46 @@ export default function CompensationPage() {
           </TableBody>
         </Table>
       </Paper>
+
+      <Dialog open={openLines} onClose={() => setOpenLines(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Compensation lines</DialogTitle>
+        <DialogContent>
+          <AppTypography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {selected ? `Effective from ${selected.effectiveFrom}` : ''}
+          </AppTypography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Component</TableCell>
+                <TableCell>Frequency</TableCell>
+                <TableCell>Payable on</TableCell>
+                <TableCell align="right">Amount</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(selected?.lines ?? []).map((l) => (
+                <TableRow key={l.id}>
+                  <TableCell>
+                    {l.componentCode} — {l.componentName}
+                  </TableCell>
+                  <TableCell>{l.frequency}</TableCell>
+                  <TableCell>{l.payableOn ?? '—'}</TableCell>
+                  <TableCell align="right">{l.amount}</TableCell>
+                </TableRow>
+              ))}
+              {(selected?.lines ?? []).length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4}>
+                    <AppTypography variant="body2" color="text.secondary" sx={{ py: 1.5 }}>
+                      No lines.
+                    </AppTypography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   )
 }

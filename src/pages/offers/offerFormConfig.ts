@@ -7,12 +7,9 @@ export type OfferFormValues = {
   candidateMobile: string
   departmentId: string
   designationId: string
-  managerId: string
   joinDate: string
   offerReleaseDate: string
   probationPeriodMonths: string
-  joiningBonus: string
-  yearlyBonus: string
   annualCtc: string
   currency: string
 }
@@ -24,12 +21,9 @@ export const EMPTY_OFFER_FORM: OfferFormValues = {
   candidateMobile: '',
   departmentId: '',
   designationId: '',
-  managerId: '',
   joinDate: '',
   offerReleaseDate: '',
   probationPeriodMonths: '',
-  joiningBonus: '',
-  yearlyBonus: '',
   annualCtc: '',
   currency: 'INR',
 }
@@ -62,12 +56,9 @@ export function getOfferFormFields(opts: {
     { name: 'candidateMobile', label: 'Mobile number', required: true, maxLength: 30 },
     { name: 'departmentId', label: 'Department', type: 'select', selectOptions: opts.departmentOptions },
     { name: 'designationId', label: 'Designation', type: 'select', selectOptions: opts.designationOptions },
-    { name: 'managerId', label: 'Manager', type: 'select', selectOptions: opts.managerOptions },
     { name: 'joinDate', label: 'Joining date', type: 'date' },
     { name: 'offerReleaseDate', label: 'Offer release date', type: 'date' },
     { name: 'probationPeriodMonths', label: 'Probation period (months)', type: 'number', min: 0, max: 48, step: 1 },
-    { name: 'joiningBonus', label: 'Joining bonus', type: 'number', min: 0, step: 1 },
-    { name: 'yearlyBonus', label: 'Yearly bonus', type: 'number', min: 0, step: 1 },
     { name: 'annualCtc', label: 'Annual CTC', type: 'number', min: 0, step: 1 },
     { name: 'currency', label: 'Currency', maxLength: 10 },
   ]

@@ -207,12 +207,9 @@ export default function OffersPage() {
         candidateMobile: formValues.candidateMobile.trim() || null,
         departmentId: parseId(formValues.departmentId),
         designationId: parseId(formValues.designationId),
-        managerId: parseId(formValues.managerId),
         joiningDate: formValues.joinDate || null,
         offerReleaseDate: formValues.offerReleaseDate || null,
         probationPeriodMonths: formValues.probationPeriodMonths ? Number(formValues.probationPeriodMonths) : null,
-        joiningBonus: formValues.joiningBonus ? Number(formValues.joiningBonus) : null,
-        yearlyBonus: formValues.yearlyBonus ? Number(formValues.yearlyBonus) : null,
         annualCtc: formValues.annualCtc ? Number(formValues.annualCtc) : null,
         currency: formValues.currency.trim() || null,
         compensationLines: parsedLines.length ? parsedLines : undefined,
@@ -262,9 +259,21 @@ export default function OffersPage() {
   }
 
   const join = async (row: JobOffer) => {
+    const actual = window.prompt(
+      'Actual joining date (YYYY-MM-DD)',
+      (row.joiningDate ?? new Date().toISOString().slice(0, 10)) as string,
+    )
+    if (!actual) return
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(actual)) {
+      setError('Invalid date format. Use YYYY-MM-DD.')
+      return
+    }
     if (!window.confirm('Mark joined and create employee + salary structure from offer compensation?')) return
     try {
-      await offersApi.join(row.id)
+      await offersApi.action(row.id, {
+        action: 'JOIN',
+        join: { actualJoiningDate: actual, confirmCandidateAcceptedOffer: true },
+      })
       setRefreshToken((t) => t + 1)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed')

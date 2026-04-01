@@ -193,6 +193,8 @@ export interface CompensationLine {
   componentCode: string
   componentName: string
   amount: string | number
+  frequency: 'MONTHLY' | 'YEARLY' | 'ONE_TIME'
+  payableOn: string | null
 }
 
 export interface EmployeeCompensation {
@@ -223,10 +225,9 @@ export interface JobOffer {
   managerId: number | null
   managerName: string | null
   joiningDate: string | null
+  actualJoiningDate?: string | null
   offerReleaseDate: string | null
   probationPeriodMonths: number | null
-  joiningBonus: string | number | null
-  yearlyBonus: string | number | null
   annualCtc: string | number | null
   currency: string
   bodyHtml: string | null

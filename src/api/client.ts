@@ -412,6 +412,10 @@ export const payrollApi = {
 export const compensationApi = {
   list: (employeeId: number) =>
     apiFetch<EmployeeCompensation[]>(`/compensation/employee/${employeeId}`).then(handleOk),
+  search: (params: { employeeId: number; effectiveDate: string }) => {
+    const q = new URLSearchParams({ employeeId: String(params.employeeId), effectiveDate: params.effectiveDate })
+    return apiFetch<EmployeeCompensation[]>(`/compensation/search?${q.toString()}`).then(handleOk)
+  },
   create: (body: {
     employeeId: number
     effectiveFrom: string
@@ -419,7 +423,7 @@ export const compensationApi = {
     currency?: string | null
     annualCtc?: number | null
     notes?: string | null
-    lines: { componentId: number; amount: number }[]
+    lines: { componentId: number; amount: number; frequency: 'MONTHLY' | 'YEARLY' | 'ONE_TIME'; payableOn?: string | null }[]
   }) => apiFetch<EmployeeCompensation>('/compensation', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
   syncStructure: (id: number) =>
     apiFetch<SalaryStructure>(`/compensation/${id}/sync-structure`, { method: 'POST' }).then(handleOk),
@@ -449,7 +453,14 @@ export const offersApi = {
   getOffer: (id: number) => apiFetch<JobOffer>(`/offers/${id}`).then(handleOk),
   action: (
     id: number,
-    body: { action: 'SEND' | 'RESEND' | 'ACCEPT' | 'REJECT' | 'JOIN'; join?: { compensationEffectiveFrom?: string | null; confirmCandidateAcceptedOffer?: boolean | null } | null },
+    body: {
+      action: 'SEND' | 'RESEND' | 'ACCEPT' | 'REJECT' | 'JOIN'
+      join?: {
+        compensationEffectiveFrom?: string | null
+        actualJoiningDate: string
+        confirmCandidateAcceptedOffer?: boolean | null
+      } | null
+    },
   ) => apiFetch<JobOffer>(`/offers/${id}/action`, { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
   createOffer: (body: {
     candidateName: string
@@ -458,12 +469,9 @@ export const offersApi = {
     employeeType?: string | null
     departmentId?: number | null
     designationId?: number | null
-    managerId?: number | null
     joiningDate?: string | null
     offerReleaseDate?: string | null
     probationPeriodMonths?: number | null
-    joiningBonus?: number | null
-    yearlyBonus?: number | null
     annualCtc?: number | null
     currency?: string | null
     compensationLines?: { componentId: number; amount: number }[]
@@ -472,7 +480,9 @@ export const offersApi = {
   resend: (id: number) => offersApi.action(id, { action: 'RESEND' }),
   accept: (id: number) => offersApi.action(id, { action: 'ACCEPT' }),
   reject: (id: number) => offersApi.action(id, { action: 'REJECT' }),
-  join: (id: number) => offersApi.action(id, { action: 'JOIN', join: null }),
+  // For JOIN, caller must pass actualJoiningDate in join payload; this helper is kept for backward compatibility but will fail if used.
+  join: (id: number) =>
+    offersApi.action(id, { action: 'JOIN', join: { actualJoiningDate: new Date().toISOString().slice(0, 10), confirmCandidateAcceptedOffer: true } }),
   downloadPdf: (id: number) => fetchPdf(`/offers/${id}/pdf`),
   exportCsv: (params: {
     status?: string | null
