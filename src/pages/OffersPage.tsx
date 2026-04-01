@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   Alert,
   Box,
@@ -301,9 +300,6 @@ export default function OffersPage() {
       maxWidth="none"
       actions={
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <AppButton component={Link} to="/hr" variant="outlined">
-            Back
-          </AppButton>
           <AppButton variant="outlined" onClick={exportCsv}>
             Export CSV
           </AppButton>
@@ -394,22 +390,24 @@ export default function OffersPage() {
             </Select>
           </FormControl>
 
-          <AppTextField
-            label="Search (name/email)"
-            size="small"
-            value={filters.q}
-            onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') setRefreshToken((t) => t + 1)
-            }}
-            sx={{ minWidth: 240 }}
-          />
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <AppTextField
+              label="Search (name/email)"
+              size="small"
+              value={filters.q}
+              onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setRefreshToken((t) => t + 1)
+              }}
+              sx={{ minWidth: 240 }}
+            />
+          </FormControl>
           <AppButton
             variant="outlined"
             onClick={() => setRefreshToken((t) => t + 1)}
             sx={{ flexShrink: 0 }}
           >
-            Apply
+            Search
           </AppButton>
         </Stack>
       </Paper>

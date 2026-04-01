@@ -82,7 +82,6 @@ function val(v: unknown) {
 
 export function getOfferColumnDefs(actions: OfferRowActions): ColDef<JobOffer>[] {
   return [
-    { headerName: 'ID', field: 'id', width: 90, flex: 0, filter: false },
     { headerName: 'Candidate', field: 'candidateName', minWidth: 180 },
     { headerName: 'Email', field: 'candidateEmail', minWidth: 220, valueFormatter: (p) => val(p.value) },
     { headerName: 'Mobile', field: 'candidateMobile', minWidth: 140, valueFormatter: (p) => val(p.value) },
