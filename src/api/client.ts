@@ -447,6 +447,10 @@ export const offersApi = {
     return apiFetch<PagedResponse<JobOffer>>(`/offers/paged?${q.toString()}`).then(handleOk)
   },
   getOffer: (id: number) => apiFetch<JobOffer>(`/offers/${id}`).then(handleOk),
+  action: (
+    id: number,
+    body: { action: 'SEND' | 'RESEND' | 'ACCEPT' | 'REJECT' | 'JOIN'; join?: { compensationEffectiveFrom?: string | null; confirmCandidateAcceptedOffer?: boolean | null } | null },
+  ) => apiFetch<JobOffer>(`/offers/${id}/action`, { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
   createOffer: (body: {
     candidateName: string
     candidateEmail?: string | null
@@ -464,11 +468,11 @@ export const offersApi = {
     currency?: string | null
     compensationLines?: { componentId: number; amount: number }[]
   }) => apiFetch<JobOffer>('/offers', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
-  send: (id: number) => apiFetch<JobOffer>(`/offers/${id}/send`, { method: 'POST' }).then(handleOk),
-  resend: (id: number) => apiFetch<JobOffer>(`/offers/${id}/resend`, { method: 'POST' }).then(handleOk),
-  accept: (id: number) => apiFetch<JobOffer>(`/offers/${id}/accept`, { method: 'POST' }).then(handleOk),
-  reject: (id: number) => apiFetch<JobOffer>(`/offers/${id}/reject`, { method: 'POST' }).then(handleOk),
-  join: (id: number) => apiFetch<JobOffer>(`/offers/${id}/join`, { method: 'POST' }).then(handleOk),
+  send: (id: number) => offersApi.action(id, { action: 'SEND' }),
+  resend: (id: number) => offersApi.action(id, { action: 'RESEND' }),
+  accept: (id: number) => offersApi.action(id, { action: 'ACCEPT' }),
+  reject: (id: number) => offersApi.action(id, { action: 'REJECT' }),
+  join: (id: number) => offersApi.action(id, { action: 'JOIN', join: null }),
   downloadPdf: (id: number) => fetchPdf(`/offers/${id}/pdf`),
   exportCsv: (params: {
     status?: string | null
