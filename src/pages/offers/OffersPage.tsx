@@ -10,7 +10,7 @@ import {
   Stack,
 } from '@mui/material'
 import { departmentsApi, designationsApi, employeesApi, offersApi, payrollApi } from '../../api/client'
-import type { JobOffer, SalaryComponent } from '../../types/hrms'
+import type { JobOffer, JobOfferStatus, SalaryComponent } from '../../types/hrms'
 import type { Department, Designation, Employee } from '../../types/org'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../../components/ui'
 import { CommonInputForm, DataGrid, getFormFieldsGridSx } from '../../components/shared'
@@ -100,6 +100,52 @@ export default function OffersPage() {
     const rounded = Math.round(total * 100) / 100
     return String(rounded)
   }, [lines])
+
+  const statusDisplayName = (s: JobOfferStatus | string | null | undefined) => {
+    if (!s) return '—'
+    switch (s) {
+      case 'DRAFT':
+      case 'Draft':
+        return 'Draft'
+      case 'SENT':
+      case 'Sent':
+        return 'Sent'
+      case 'ACCEPTED':
+      case 'Accepted':
+        return 'Accepted'
+      case 'REJECTED':
+      case 'Rejected':
+        return 'Rejected'
+      case 'DECLINED':
+      case 'Declined':
+        return 'Declined'
+      case 'JOINED':
+      case 'Joined':
+        return 'Joined'
+      case 'EXPIRED':
+      case 'Expired':
+        return 'Expired'
+      default:
+        return String(s)
+    }
+  }
+
+  const employeeTypeDisplayName = (et: string | null | undefined) => {
+    if (!et) return '—'
+    switch (et) {
+      case 'PERMANENT_FULL_TIME':
+      case 'Permanent - Full time':
+        return 'Permanent - Full time'
+      case 'PERMANENT_PART_TIME':
+      case 'Permanent - Part time':
+        return 'Permanent - Part time'
+      case 'CONTRACT':
+      case 'Contract':
+        return 'Contract'
+      default:
+        return et
+    }
+  }
 
   const load = () => {
     setLoading(true)
@@ -334,15 +380,32 @@ export default function OffersPage() {
   }
 
   const columnDefs = useMemo(
-    () =>
-      getOfferColumnDefs({
+    () => {
+      const baseCols = getOfferColumnDefs({
         onRelease: release,
         onResend: resend,
         onDownloadPdf: (r) => downloadPdf(r.id),
         onAccept: accept,
         onReject: reject,
         onJoin: join,
-      }),
+      })
+      // Override label rendering (keep underlying keys for action enablement).
+      return baseCols.map((col) => {
+        if (col.field === 'employeeType') {
+          return {
+            ...col,
+            valueFormatter: (p: { value: unknown }) => employeeTypeDisplayName(p.value as string | null | undefined),
+          }
+        }
+        if (col.field === 'status') {
+          return {
+            ...col,
+            valueFormatter: (p: { value: unknown }) => statusDisplayName(p.value as JobOfferStatus | string | null | undefined),
+          }
+        }
+        return col
+      })
+    },
     [accept],
   )
 
@@ -381,11 +444,11 @@ export default function OffersPage() {
               }}
             >
               <MenuItem value="">All</MenuItem>
-              <MenuItem value="DRAFT">DRAFT</MenuItem>
-              <MenuItem value="SENT">SENT</MenuItem>
-              <MenuItem value="ACCEPTED">ACCEPTED</MenuItem>
-              <MenuItem value="REJECTED">REJECTED</MenuItem>
-              <MenuItem value="JOINED">JOINED</MenuItem>
+              <MenuItem value="DRAFT">Draft</MenuItem>
+              <MenuItem value="SENT">Sent</MenuItem>
+              <MenuItem value="ACCEPTED">Accepted</MenuItem>
+              <MenuItem value="REJECTED">Rejected</MenuItem>
+              <MenuItem value="JOINED">Joined</MenuItem>
             </Select>
           </FormControl>
 
