@@ -412,9 +412,12 @@ export const payrollApi = {
 export const compensationApi = {
   list: (employeeId: number) =>
     apiFetch<EmployeeCompensation[]>(`/compensation/employee/${employeeId}`).then(handleOk),
-  search: (params: { employeeId: number; effectiveDate: string }) => {
-    const q = new URLSearchParams({ employeeId: String(params.employeeId), effectiveDate: params.effectiveDate })
-    return apiFetch<EmployeeCompensation[]>(`/compensation/search?${q.toString()}`).then(handleOk)
+  search: (params: { employeeId?: number | null; effectiveDate?: string | null }) => {
+    const q = new URLSearchParams()
+    if (params.employeeId != null) q.set('employeeId', String(params.employeeId))
+    if (params.effectiveDate) q.set('effectiveDate', params.effectiveDate)
+    const qs = q.toString()
+    return apiFetch<EmployeeCompensation[]>(`/compensation/search${qs ? `?${qs}` : ''}`).then(handleOk)
   },
   create: (body: {
     employeeId: number

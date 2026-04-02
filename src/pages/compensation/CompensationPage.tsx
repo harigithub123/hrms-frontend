@@ -22,7 +22,7 @@ import { compensationApi, employeesApi, payrollApi } from '../../api/client'
 import type { EmployeeCompensation, SalaryComponent } from '../../types/hrms'
 import type { Employee } from '../../types/org'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../../components/ui'
-import { CommonInputForm, DataGrid } from '../../components/shared'
+import { CommonInputForm, DataGrid, getFormFieldsGridSx } from '../../components/shared'
 import type { GridQueryParams, GridQueryResult } from '../../components/shared'
 import { getCompensationColumnDefs } from './compensationColumns'
 import {
@@ -127,12 +127,11 @@ export default function CompensationPage() {
   const closeCreate = () => setCreateOpen(false)
 
   const search = useCallback(async () => {
-    if (empId === '' || !effectiveDate) {
-      setError('Select employee and effective date')
-      return
-    }
     try {
-      const res = await compensationApi.search({ employeeId: empId as number, effectiveDate })
+      const res = await compensationApi.search({
+        employeeId: empId === '' ? null : (empId as number),
+        effectiveDate: effectiveDate || null,
+      })
       setSearchResults(res)
       setError('')
     } catch (e) {
@@ -169,9 +168,14 @@ export default function CompensationPage() {
         lines: parsed,
       })
       closeCreate()
-      if (empId === employeeId && effectiveDate) {
-        const res = await compensationApi.search({ employeeId, effectiveDate })
+      try {
+        const res = await compensationApi.search({
+          employeeId: empId === '' ? null : empId,
+          effectiveDate: effectiveDate || null,
+        })
         setSearchResults(res)
+      } catch {
+        /* ignore refresh errors */
       }
       setError('')
     } catch (e) {
@@ -220,6 +224,9 @@ export default function CompensationPage() {
       maxWidth="none"
       actions={
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <AppButton component={Link} to="/hr" variant="outlined">
+            Back
+          </AppButton>
           <AppButton variant="contained" onClick={openCreate}>
             Create compensation
           </AppButton>
@@ -232,11 +239,17 @@ export default function CompensationPage() {
         </Alert>
       )}
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 240 }}>
-            <InputLabel>Employee</InputLabel>
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={1}
+          flexWrap="wrap"
+          useFlexGap
+          alignItems={{ xs: 'stretch', md: 'flex-end' }}
+        >
+          <FormControl size="small" sx={{ minWidth: 240, width: { xs: '100%', md: 'auto' } }}>
+            <InputLabel>Employee (optional)</InputLabel>
             <Select
-              label="Employee"
+              label="Employee (optional)"
               value={empId}
               onChange={(e) => setEmpId(e.target.value === '' ? '' : Number(e.target.value))}
             >
@@ -249,21 +262,31 @@ export default function CompensationPage() {
             </Select>
           </FormControl>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
-            <FormControl size="small" sx={{ minWidth: 240 }}>
-              <AppTextField
-                label="Effective Date"
-                type="date"
-                value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-              />
-            </FormControl>
-            <AppButton variant="outlined" onClick={search} disabled={empId === '' || !effectiveDate}>
-              Search
-            </AppButton>
-          </Stack>
+          <AppTextField
+            label="Effective date (optional)"
+            type="date"
+            value={effectiveDate}
+            onChange={(e) => setEffectiveDate(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            size="small"
+            sx={{ minWidth: 160, width: { xs: '100%', md: 180 }, flexShrink: 0 }}
+          />
+
+          <AppButton
+            variant="outlined"
+            onClick={search}
+            sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', md: 'auto' } }}
+          >
+            Search
+          </AppButton>
+
+          <AppTypography
+            variant="body2"
+            color="text.secondary"
+            sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', md: 'center' }, lineHeight: 1.2 }}
+          >
+            {employeeLabel}
+          </AppTypography>
         </Stack>
       </Paper>
 
@@ -280,6 +303,7 @@ export default function CompensationPage() {
         open={createOpen}
         title="Create compensation"
         maxWidth="md"
+        fieldsPerRow={2}
         fields={formFields}
         values={formValues}
         errors={formErrors}
@@ -294,10 +318,10 @@ export default function CompensationPage() {
             <AppTypography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
               Compensation lines
             </AppTypography>
-            <Stack spacing={1}>
+            <Box sx={getFormFieldsGridSx(2)}>
               {lines.map((ln, i) => (
-                <Stack key={i} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
-                  <FormControl size="small" sx={{ minWidth: 220, flex: 1 }}>
+                <Box key={i} sx={{ display: 'contents' }}>
+                  <FormControl size="small" fullWidth>
                     <InputLabel>Component</InputLabel>
                     <Select
                       label="Component"
@@ -320,17 +344,16 @@ export default function CompensationPage() {
                     type="number"
                     value={ln.amount}
                     onChange={(e) => setLines((prev) => prev.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
-                    size="small"
-                    sx={{ width: 140 }}
+                    sx={{ maxWidth: { xs: 'none', sm: 200 } }}
                   />
-                </Stack>
+                </Box>
               ))}
-              <Box>
-                <AppButton size="small" variant="outlined" onClick={addLine}>
-                  Add line
-                </AppButton>
-              </Box>
-            </Stack>
+            </Box>
+            <Box sx={{ mt: 1 }}>
+              <AppButton size="small" variant="outlined" onClick={addLine}>
+                Add line
+              </AppButton>
+            </Box>
           </Box>
         }
       />

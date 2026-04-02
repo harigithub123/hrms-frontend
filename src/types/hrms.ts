@@ -200,10 +200,14 @@ export interface CompensationLine {
 export interface EmployeeCompensation {
   id: number
   employeeId: number
+  /** Present when returned from search/list APIs. */
+  employeeName?: string | null
   effectiveFrom: string
   effectiveTo: string | null
   currency: string
   annualCtc: string | number | null
+  annualBonus?: string | number | null
+  joiningBonus?: string | number | null
   notes: string | null
   createdAt: string
   lines: CompensationLine[]

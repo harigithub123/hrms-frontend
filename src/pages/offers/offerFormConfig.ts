@@ -60,7 +60,7 @@ export function getOfferFormFields(opts: {
     { name: 'offerReleaseDate', label: 'Offer release date', type: 'date' },
     { name: 'probationPeriodMonths', label: 'Probation period (months)', type: 'number', min: 0, max: 48, step: 1 },
     { name: 'annualCtc', label: 'Annual CTC', type: 'number', min: 0, step: 1 },
-    { name: 'currency', label: 'Currency', maxLength: 10 },
+    { name: 'currency', label: 'Currency', maxLength: 10, fullRow: true },
   ]
 }
 

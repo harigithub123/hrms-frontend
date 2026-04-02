@@ -14,6 +14,20 @@ function val(v: unknown) {
   return v == null || v === '' ? '—' : String(v)
 }
 
+function annualBonusFromLines(d: EmployeeCompensation | undefined): number {
+  if (!d?.lines) return 0
+  return d.lines
+    .filter((l) => l.frequency === 'YEARLY' && l.componentCode === 'ANNUAL_BONUS')
+    .reduce((s, l) => s + num(l.amount), 0)
+}
+
+function joiningBonusFromLines(d: EmployeeCompensation | undefined): number {
+  if (!d?.lines) return 0
+  return d.lines
+    .filter((l) => l.frequency === 'ONE_TIME' && l.componentCode === 'JOINING_BONUS')
+    .reduce((s, l) => s + num(l.amount), 0)
+}
+
 export type CompensationColumnCallbacks = {
   onViewLines: (row: EmployeeCompensation) => void
   onSyncStructure: (row: EmployeeCompensation) => void
@@ -49,6 +63,12 @@ function SyncCell(params: SyncCellParams) {
 
 export function getCompensationColumnDefs(callbacks: CompensationColumnCallbacks): ColDef<EmployeeCompensation>[] {
   return [
+    {
+      headerName: 'Employee',
+      field: 'employeeName',
+      minWidth: 140,
+      valueFormatter: (p) => val(p.value),
+    },
     { headerName: 'From', field: 'effectiveFrom', minWidth: 120 },
     {
       headerName: 'To',
@@ -57,9 +77,9 @@ export function getCompensationColumnDefs(callbacks: CompensationColumnCallbacks
       valueFormatter: (p) => val(p.value),
     },
     {
-      headerName: 'CTC',
+      headerName: 'Annual CTC',
       field: 'annualCtc',
-      minWidth: 100,
+      minWidth: 120,
       valueFormatter: (p) => val(p.value),
     },
     {
@@ -75,24 +95,28 @@ export function getCompensationColumnDefs(callbacks: CompensationColumnCallbacks
     },
     {
       headerName: 'Annual bonus',
-      colId: 'annualBonus',
+      colId: 'annualBonusCol',
       sortable: false,
       filter: false,
-      valueGetter: (p) =>
-        (p.data?.lines ?? [])
-          .filter((l) => l.frequency === 'YEARLY' && l.componentCode === 'ANNUAL_BONUS')
-          .reduce((s, l) => s + num(l.amount), 0),
+      valueGetter: (p) => {
+        const d = p.data
+        if (d == null) return 0
+        if (d.annualBonus != null && d.annualBonus !== '') return num(d.annualBonus)
+        return annualBonusFromLines(d)
+      },
       valueFormatter: (p) => (Number(p.value) > 0 ? String(p.value) : '—'),
     },
     {
       headerName: 'Joining bonus',
-      colId: 'joiningBonus',
+      colId: 'joiningBonusCol',
       sortable: false,
       filter: false,
-      valueGetter: (p) =>
-        (p.data?.lines ?? [])
-          .filter((l) => l.frequency === 'ONE_TIME' && l.componentCode === 'JOINING_BONUS')
-          .reduce((s, l) => s + num(l.amount), 0),
+      valueGetter: (p) => {
+        const d = p.data
+        if (d == null) return 0
+        if (d.joiningBonus != null && d.joiningBonus !== '') return num(d.joiningBonus)
+        return joiningBonusFromLines(d)
+      },
       valueFormatter: (p) => (Number(p.value) > 0 ? String(p.value) : '—'),
     },
     {

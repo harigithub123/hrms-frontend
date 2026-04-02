@@ -9,14 +9,14 @@ import {
   Select,
   Stack,
 } from '@mui/material'
-import { departmentsApi, designationsApi, employeesApi, offersApi, payrollApi } from '../api/client'
-import type { JobOffer, SalaryComponent } from '../types/hrms'
-import type { Department, Designation, Employee } from '../types/org'
-import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
-import { CommonInputForm, DataGrid } from '../components/shared'
-import type { GridQueryParams, GridQueryResult } from '../components/shared'
-import { getOfferColumnDefs } from './offers/offerColumns'
-import { EMPTY_OFFER_FORM, getOfferFormFields, OFFER_TEXT_RULES, type OfferFormValues } from './offers/offerFormConfig'
+import { departmentsApi, designationsApi, employeesApi, offersApi, payrollApi } from '../../api/client'
+import type { JobOffer, SalaryComponent } from '../../types/hrms'
+import type { Department, Designation, Employee } from '../../types/org'
+import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../../components/ui'
+import { CommonInputForm, DataGrid, getFormFieldsGridSx } from '../../components/shared'
+import type { GridQueryParams, GridQueryResult } from '../../components/shared'
+import { getOfferColumnDefs } from './offerColumns'
+import { EMPTY_OFFER_FORM, getOfferFormFields, OFFER_TEXT_RULES, type OfferFormValues } from './offerFormConfig'
 
 export default function OffersPage() {
   const [refreshToken, setRefreshToken] = useState(0)
@@ -390,18 +390,16 @@ export default function OffersPage() {
             </Select>
           </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 220 }}>
-            <AppTextField
-              label="Search (name/email)"
-              size="small"
-              value={filters.q}
-              onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') setRefreshToken((t) => t + 1)
-              }}
-              sx={{ minWidth: 240 }}
-            />
-          </FormControl>
+          <AppTextField
+            label="Search (name/email)"
+            size="small"
+            value={filters.q}
+            onChange={(e) => setFilters((p) => ({ ...p, q: e.target.value }))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') setRefreshToken((t) => t + 1)
+            }}
+            sx={{ minWidth: 240 }}
+          />
           <AppButton
             variant="outlined"
             onClick={() => setRefreshToken((t) => t + 1)}
@@ -425,6 +423,8 @@ export default function OffersPage() {
       <CommonInputForm<OfferFormValues>
         open={open}
         title="Create offer"
+        maxWidth="md"
+        fieldsPerRow={2}
         fields={formFields}
         values={formValues}
         errors={formErrors}
@@ -439,10 +439,10 @@ export default function OffersPage() {
             <AppTypography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
               Compensation (components)
             </AppTypography>
-            <Stack spacing={1}>
+            <Box sx={getFormFieldsGridSx(2)}>
               {lines.map((ln, i) => (
-                <Stack key={i} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
-                  <FormControl size="small" sx={{ minWidth: 240 }}>
+                <Box key={i} sx={{ display: 'contents' }}>
+                  <FormControl size="small" fullWidth>
                     <InputLabel>Component</InputLabel>
                     <Select
                       label="Component"
@@ -463,19 +463,18 @@ export default function OffersPage() {
                   <AppTextField
                     label="Amount"
                     type="number"
-                    size="small"
                     value={ln.amount}
                     onChange={(e) => setLines((prev) => prev.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
-                    sx={{ width: 160 }}
+                    sx={{ maxWidth: { xs: 'none', sm: 200 } }}
                   />
-                </Stack>
+                </Box>
               ))}
-              <Box>
-                <AppButton size="small" variant="outlined" onClick={addLine}>
-                  Add line
-                </AppButton>
-              </Box>
-            </Stack>
+            </Box>
+            <Box sx={{ mt: 1 }}>
+              <AppButton size="small" variant="outlined" onClick={addLine}>
+                Add line
+              </AppButton>
+            </Box>
           </Box>
         }
       />

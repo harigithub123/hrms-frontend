@@ -25,8 +25,15 @@ export function getCompensationFormFields(opts: {
   employeeOptions: Array<{ value: string; label: string }>
 }): Array<GenericFormFieldConfig<CompensationFormValues>> {
   return [
-    { name: 'employeeId', label: 'Employee', type: 'select', required: true, selectOptions: opts.employeeOptions },
+    {
+      name: 'employeeId',
+      label: 'Employee',
+      type: 'select',
+      required: true,
+      selectOptions: opts.employeeOptions,
+      fullRow: true,
+    },
     { name: 'effectiveFrom', label: 'Effective from', type: 'date', required: true },
-    { name: 'annualCtc', label: 'Annual CTC (optional)', type: 'number', min: 0, step: 1 },
+    { name: 'annualCtc', label: 'Annual CTC', type: 'number', min: 0, step: 1 },
   ]
 }
