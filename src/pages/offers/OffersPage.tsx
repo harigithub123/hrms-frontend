@@ -16,7 +16,14 @@ import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } fr
 import { CommonInputForm, DataGrid, getFormFieldsGridSx } from '../../components/shared'
 import type { GridQueryParams, GridQueryResult } from '../../components/shared'
 import { getOfferColumnDefs } from './offerColumns'
-import { EMPTY_OFFER_FORM, getOfferFormFields, OFFER_TEXT_RULES, type OfferFormValues } from './offerFormConfig'
+import {
+  EMPTY_OFFER_FORM,
+  getOfferFormFields,
+  OFFER_LINE_FREQUENCY_OPTIONS,
+  OFFER_TEXT_RULES,
+  type OfferFormValues,
+  type OfferLineFrequency,
+} from './offerFormConfig'
 
 export default function OffersPage() {
   const [refreshToken, setRefreshToken] = useState(0)
@@ -46,7 +53,53 @@ export default function OffersPage() {
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof OfferFormValues, string>>>({})
   const [submitError, setSubmitError] = useState('')
 
-  const [lines, setLines] = useState<{ componentId: number; amount: string }[]>([{ componentId: 0, amount: '' }])
+  const deriveFrequencyForComponentCode = useCallback(
+    (code?: string | null): OfferLineFrequency => {
+      if (code === 'ANNUAL_BONUS') return 'YEARLY'
+      if (code === 'JOINING_BONUS') return 'ONE_TIME'
+      return 'MONTHLY'
+    },
+    [],
+  )
+
+  const [lines, setLines] = useState<{ componentId: number; amount: string; frequency: OfferLineFrequency }[]>([
+    { componentId: 0, amount: '', frequency: 'MONTHLY' },
+  ])
+
+  const annualCtcFromLines = useMemo(() => {
+    let total = 0
+    let hasAnyLine = false
+
+    for (const ln of lines) {
+      if (ln.componentId <= 0) continue
+
+      const trimmed = ln.amount.trim()
+      if (!trimmed) continue
+
+      const amount = Number(trimmed)
+      if (Number.isNaN(amount)) continue
+
+      hasAnyLine = true
+
+      switch (ln.frequency) {
+        case 'MONTHLY':
+          total += amount * 12
+          break
+        case 'YEARLY':
+          total += amount
+          break
+        case 'ONE_TIME':
+          total += amount
+          break
+      }
+    }
+
+    if (!hasAnyLine) return ''
+
+    // Match backend rounding behaviour (scale=2, HALF_UP).
+    const rounded = Math.round(total * 100) / 100
+    return String(rounded)
+  }, [lines])
 
   const load = () => {
     setLoading(true)
@@ -178,13 +231,14 @@ export default function OffersPage() {
     setFormValues(EMPTY_OFFER_FORM)
     setFormErrors({})
     setSubmitError('')
-    setLines([{ componentId: 0, amount: '' }])
+    setLines([{ componentId: 0, amount: '', frequency: 'MONTHLY' }])
     setOpen(true)
   }
 
   const close = () => setOpen(false)
 
-  const addLine = () => setLines((l) => [...l, { componentId: 0, amount: '' }])
+  const addLine = () =>
+    setLines((l) => [...l, { componentId: 0, amount: '', frequency: 'MONTHLY' }])
 
   const submitOffer = async () => {
     setSubmitError('')
@@ -196,7 +250,7 @@ export default function OffersPage() {
 
     const parsedLines = lines
       .filter((l) => l.componentId > 0 && l.amount.trim() !== '')
-      .map((l) => ({ componentId: l.componentId, amount: Number(l.amount) }))
+      .map((l) => ({ componentId: l.componentId, amount: Number(l.amount), frequency: l.frequency }))
 
     try {
       await offersApi.createOffer({
@@ -209,7 +263,7 @@ export default function OffersPage() {
         joiningDate: formValues.joinDate || null,
         offerReleaseDate: formValues.offerReleaseDate || null,
         probationPeriodMonths: formValues.probationPeriodMonths ? Number(formValues.probationPeriodMonths) : null,
-        annualCtc: formValues.annualCtc ? Number(formValues.annualCtc) : null,
+        annualCtc: annualCtcFromLines ? Number(annualCtcFromLines) : null,
         currency: formValues.currency.trim() || null,
         compensationLines: parsedLines.length ? parsedLines : undefined,
       })
@@ -436,10 +490,15 @@ export default function OffersPage() {
         submitLabel="Create"
         extraContent={
           <Box sx={{ mt: 2 }}>
+            <Box sx={{ mb: 1 }}>
+              <AppTypography variant="body2" color="text.secondary">
+                Annual CTC : <b>{formValues.currency.trim() || 'INR'} {annualCtcFromLines || '—'}</b>
+              </AppTypography>
+            </Box>
             <AppTypography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
               Compensation (components)
             </AppTypography>
-            <Box sx={getFormFieldsGridSx(2)}>
+            <Box sx={getFormFieldsGridSx(3)}>
               {lines.map((ln, i) => (
                 <Box key={i} sx={{ display: 'contents' }}>
                   <FormControl size="small" fullWidth>
@@ -449,17 +508,42 @@ export default function OffersPage() {
                       value={ln.componentId}
                       onChange={(e) => {
                         const v = Number(e.target.value)
-                        setLines((prev) => prev.map((x, j) => (j === i ? { ...x, componentId: v } : x)))
+                        const comp = components.find((c) => c.id === v)
+                        const nextFrequency = deriveFrequencyForComponentCode(comp?.code)
+                        setLines((prev) =>
+                          prev.map((x, j) =>
+                            j === i ? { ...x, componentId: v, frequency: nextFrequency } : x,
+                          ),
+                        )
                       }}
                     >
                       <MenuItem value={0}>—</MenuItem>
                       {components.map((c) => (
                         <MenuItem key={c.id} value={c.id}>
-                          {c.code} — {c.name}
+                          {c.name}
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
+
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Frequency</InputLabel>
+                    <Select
+                      label="Frequency"
+                      value={ln.frequency}
+                      onChange={(e) => {
+                        const next = e.target.value as OfferLineFrequency
+                        setLines((prev) => prev.map((x, j) => (j === i ? { ...x, frequency: next } : x)))
+                      }}
+                    >
+                      {OFFER_LINE_FREQUENCY_OPTIONS.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
                   <AppTextField
                     label="Amount"
                     type="number"

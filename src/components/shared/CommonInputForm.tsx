@@ -18,6 +18,8 @@ export type GenericFormFieldConfig<TValues extends Record<string, string>> = {
   name: keyof TValues & string
   label: string
   required?: boolean
+  /** Render the input as read-only (non-editable) while keeping it visible. */
+  readOnly?: boolean
   multiline?: boolean
   rows?: number
   maxLength?: number
@@ -100,8 +102,14 @@ export function CommonInputForm<TValues extends Record<string, string>>({
           label={field.label}
           type="number"
           value={values[field.name]}
-          onChange={(event) => onFieldChange(field.name, event.target.value)}
-          onBlur={() => onFieldBlur(field.name)}
+          onChange={(event) => {
+            if (field.readOnly) return
+            onFieldChange(field.name, event.target.value)
+          }}
+          onBlur={() => {
+            if (field.readOnly) return
+            onFieldBlur(field.name)
+          }}
           error={!!errors[field.name]}
           helperText={errors[field.name]}
           margin="dense"
@@ -110,6 +118,7 @@ export function CommonInputForm<TValues extends Record<string, string>>({
             min: field.min,
             max: field.max,
             step: field.step ?? 1,
+            readOnly: field.readOnly ?? undefined,
           }}
         />
       )
@@ -128,8 +137,15 @@ export function CommonInputForm<TValues extends Record<string, string>>({
           <Select
             label={field.label}
             value={values[field.name]}
-            onChange={(e) => onFieldChange(field.name, e.target.value as string)}
-            onBlur={() => onFieldBlur(field.name)}
+            disabled={field.readOnly}
+            onChange={(e) => {
+              if (field.readOnly) return
+              onFieldChange(field.name, e.target.value as string)
+            }}
+            onBlur={() => {
+              if (field.readOnly) return
+              onFieldBlur(field.name)
+            }}
           >
             <MenuItem value="">
               <em>—</em>
@@ -152,8 +168,14 @@ export function CommonInputForm<TValues extends Record<string, string>>({
         label={field.label}
         type={inputType}
         value={values[field.name]}
-        onChange={(event) => onFieldChange(field.name, event.target.value)}
-        onBlur={() => onFieldBlur(field.name)}
+        onChange={(event) => {
+          if (field.readOnly) return
+          onFieldChange(field.name, event.target.value)
+        }}
+        onBlur={() => {
+          if (field.readOnly) return
+          onFieldBlur(field.name)
+        }}
         error={!!errors[field.name]}
         helperText={errors[field.name]}
         margin="dense"

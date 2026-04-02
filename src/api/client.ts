@@ -477,7 +477,11 @@ export const offersApi = {
     probationPeriodMonths?: number | null
     annualCtc?: number | null
     currency?: string | null
-    compensationLines?: { componentId: number; amount: number }[]
+    compensationLines?: {
+      componentId: number
+      amount: number
+      frequency: 'MONTHLY' | 'YEARLY' | 'ONE_TIME'
+    }[]
   }) => apiFetch<JobOffer>('/offers', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
   send: (id: number) => offersApi.action(id, { action: 'SEND' }),
   resend: (id: number) => offersApi.action(id, { action: 'RESEND' }),

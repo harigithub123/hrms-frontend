@@ -14,6 +14,14 @@ export type OfferFormValues = {
   currency: string
 }
 
+export type OfferLineFrequency = 'MONTHLY' | 'YEARLY' | 'ONE_TIME'
+
+export const OFFER_LINE_FREQUENCY_OPTIONS: Array<{ value: OfferLineFrequency; label: string }> = [
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'YEARLY', label: 'Yearly' },
+  { value: 'ONE_TIME', label: 'One-time' },
+]
+
 export const EMPTY_OFFER_FORM: OfferFormValues = {
   employeeType: 'PERMANENT_FULL_TIME',
   candidateName: '',
@@ -24,8 +32,8 @@ export const EMPTY_OFFER_FORM: OfferFormValues = {
   joinDate: '',
   offerReleaseDate: '',
   probationPeriodMonths: '',
-  annualCtc: '',
   currency: 'INR',
+  annualCtc: '',
 }
 
 export const OFFER_TEXT_RULES: Array<{ name: keyof OfferFormValues; label: string; required?: boolean; maxLength?: number }> = [
@@ -59,8 +67,7 @@ export function getOfferFormFields(opts: {
     { name: 'joinDate', label: 'Joining date', type: 'date' },
     { name: 'offerReleaseDate', label: 'Offer release date', type: 'date' },
     { name: 'probationPeriodMonths', label: 'Probation period (months)', type: 'number', min: 0, max: 48, step: 1 },
-    { name: 'annualCtc', label: 'Annual CTC', type: 'number', min: 0, step: 1 },
-    { name: 'currency', label: 'Currency', maxLength: 10, fullRow: true },
+    { name: 'currency', label: 'Currency', maxLength: 10},
   ]
 }
 
