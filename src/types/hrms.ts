@@ -278,6 +278,13 @@ export interface OnboardingBankDetails {
   updatedAt: string
 }
 
+/** Payroll bank stored on the linked onboarding case (GET/PUT by employee for HR maintenance). */
+export interface EmployeePayrollBankContext {
+  linked: boolean
+  onboardingCaseId: number | null
+  bankDetails: OnboardingBankDetails | null
+}
+
 export interface OnboardingCase {
   id: number
   status: OnboardingStatus

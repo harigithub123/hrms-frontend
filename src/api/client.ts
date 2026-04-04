@@ -23,6 +23,7 @@ import type {
   LeaveRequest,
   LeaveRequestStatus,
   LeaveType,
+  EmployeePayrollBankContext,
   OnboardingCase,
   OnboardingTask,
   PayRun,
@@ -555,6 +556,24 @@ export const onboardingApi = {
     },
   ) =>
     apiFetch<OnboardingCase>(`/onboarding/${caseId}/bank-details`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }).then(handleOk),
+  getPayrollBankByEmployee: (employeeId: number) =>
+    apiFetch<EmployeePayrollBankContext>(`/onboarding/employee/${employeeId}/payroll-bank`).then(handleOk),
+  savePayrollBankByEmployee: (
+    employeeId: number,
+    body: {
+      accountHolderName: string
+      bankName: string
+      branch?: string | null
+      accountNumber: string
+      ifscCode: string
+      accountType: string
+      notes?: string | null
+    },
+  ) =>
+    apiFetch<OnboardingCase>(`/onboarding/employee/${employeeId}/payroll-bank`, {
       method: 'PUT',
       body: JSON.stringify(body),
     }).then(handleOk),

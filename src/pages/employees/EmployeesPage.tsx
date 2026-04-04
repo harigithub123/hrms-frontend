@@ -7,6 +7,7 @@ import { AppButton, PageLayout } from '../../components/ui'
 import { CommonInputForm, DataGrid } from '../../components/shared'
 import type { DataGridActionConfig, GridQueryParams, GridQueryResult } from '../../components/shared'
 import { getEmployeeColumnDefs } from './employeeColumns'
+import { EmployeePayrollBankDialog } from './EmployeePayrollBankDialog'
 import {
   EMPTY_EMPLOYEE_FORM,
   EMPLOYEE_TEXT_RULES,
@@ -27,6 +28,8 @@ export default function EmployeesPage() {
   const [formValues, setFormValues] = useState<EmployeeFormValues>(EMPTY_EMPLOYEE_FORM)
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof EmployeeFormValues, string>>>({})
   const [submitError, setSubmitError] = useState('')
+  const [bankDialogOpen, setBankDialogOpen] = useState(false)
+  const [bankEmployee, setBankEmployee] = useState<Employee | null>(null)
 
   useEffect(() => {
     Promise.all([departmentsApi.listAll(), designationsApi.listAll(), employeesApi.listAll()]).then(
@@ -168,6 +171,11 @@ export default function EmployeesPage() {
     }
   }
 
+  const openPayrollBank = useCallback((row: Employee) => {
+    setBankEmployee(row)
+    setBankDialogOpen(true)
+  }, [])
+
   const handleDelete = useCallback(async (id: number) => {
     if (!window.confirm('Delete this employee?')) return
     try {
@@ -181,8 +189,12 @@ export default function EmployeesPage() {
   }, [])
 
   const actionConfig: DataGridActionConfig<Employee> = useMemo(
-    () => ({ onEdit: openEdit, onDelete: (row) => handleDelete(row.id) }),
-    [handleDelete, openEdit],
+    () => ({
+      onEdit: openEdit,
+      onDelete: (row) => handleDelete(row.id),
+      onPayrollBank: openPayrollBank,
+    }),
+    [handleDelete, openEdit, openPayrollBank],
   )
 
   const columnDefs = useMemo(() => getEmployeeColumnDefs(), [])
@@ -225,6 +237,16 @@ export default function EmployeesPage() {
         onClose={close}
         onSubmit={handleSubmit}
         submitLabel="Save"
+      />
+
+      <EmployeePayrollBankDialog
+        open={bankDialogOpen}
+        employee={bankEmployee}
+        onClose={() => {
+          setBankDialogOpen(false)
+          setBankEmployee(null)
+        }}
+        onSaved={() => setRefreshToken((value) => value + 1)}
       />
     </PageLayout>
   )

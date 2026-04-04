@@ -1,102 +1,360 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
+  Menu,
   MenuItem,
   Paper,
   Select,
   Stack,
 } from '@mui/material'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { departmentsApi, designationsApi, employeesApi, onboardingApi, offersApi } from '../api/client'
 import type { JobOffer, OnboardingCase, OnboardingTask, OnboardingTaskStatus } from '../types/hrms'
 import type { Department, Designation, Employee } from '../types/org'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
+import { PayrollBankDetailsForm } from '../components/payroll/PayrollBankDetailsForm'
+import { CommonInputForm, DataGrid } from '../components/shared'
+import type { GenericFormFieldConfig, GridQueryParams, GridQueryResult } from '../components/shared'
 
 const TASK_STATUSES: OnboardingTaskStatus[] = ['PENDING', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'CANCELLED']
+
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 50]
+
+function toErrorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : 'Failed'
+}
+
+type OnboardingCreateFormValues = {
+  firstName: string
+  lastName: string
+  email: string
+  joinDate: string
+  departmentId: string
+  designationId: string
+  managerId: string
+  offerId: string
+}
+
+const EMPTY_ONBOARDING_FORM: OnboardingCreateFormValues = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  joinDate: '',
+  departmentId: '',
+  designationId: '',
+  managerId: '',
+  offerId: '',
+}
+
+type OnboardingMenuParams = {
+  onEmployeeDetails: (c: OnboardingCase) => void
+}
+
+function OnboardingMenuCell(
+  params: ICellRendererParams<OnboardingCase, unknown, OnboardingMenuParams>,
+) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const c = params.data
+  const menuParams = (params.colDef?.cellRendererParams ?? {}) as OnboardingMenuParams
+  if (!c) return null
+
+  return (
+    <Box
+      sx={{ display: 'flex', alignItems: 'center', height: '100%' }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <IconButton
+        size="small"
+        aria-label="Open menu"
+        onClick={(e) => {
+          e.stopPropagation()
+          setAnchor(e.currentTarget)
+        }}
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
+        <MenuItem
+          disabled={c.employeeId == null}
+          onClick={() => {
+            setAnchor(null)
+            menuParams.onEmployeeDetails(c)
+          }}
+        >
+          View employee details
+        </MenuItem>
+      </Menu>
+    </Box>
+  )
+}
+
+function getOnboardingColumnDefs(menuParams: OnboardingMenuParams): ColDef<OnboardingCase>[] {
+  return [
+    {
+      headerName: 'Candidate',
+      colId: 'candidateName',
+      valueGetter: (p) =>
+        `${p.data?.candidateFirstName ?? ''} ${p.data?.candidateLastName ?? ''}`.trim(),
+      flex: 1.2,
+      minWidth: 160,
+    },
+    {
+      headerName: 'Email',
+      field: 'candidateEmail',
+      valueFormatter: (p) => (p.value ? String(p.value) : '—'),
+    },
+    { headerName: 'Join date', field: 'joinDate', maxWidth: 130 },
+    { headerName: 'Status', field: 'status', maxWidth: 140 },
+    {
+      headerName: 'Department',
+      field: 'departmentName',
+      valueFormatter: (p) => (p.value ? String(p.value) : '—'),
+    },
+    {
+      headerName: 'Designation',
+      field: 'designationName',
+      valueFormatter: (p) => (p.value ? String(p.value) : '—'),
+    },
+    {
+      headerName: 'Manager',
+      field: 'managerName',
+      valueFormatter: (p) => (p.value ? String(p.value) : '—'),
+    },
+    {
+      headerName: 'Tasks',
+      colId: 'taskProgress',
+      filter: false,
+      sortable: false,
+      maxWidth: 90,
+      valueGetter: (p) => {
+        const t = p.data?.tasks ?? []
+        const done = t.filter((x) => x.done).length
+        return `${done}/${t.length}`
+      },
+    },
+    {
+      headerName: 'Employee #',
+      field: 'employeeId',
+      maxWidth: 110,
+      valueFormatter: (p) => (p.value != null ? String(p.value) : '—'),
+    },
+    {
+      headerName: '',
+      colId: '__onboarding_menu__',
+      sortable: false,
+      filter: false,
+      resizable: false,
+      flex: 0,
+      width: 52,
+      cellRenderer: OnboardingMenuCell,
+      cellRendererParams: menuParams,
+    },
+  ]
+}
+
+function parseId(v: string): number | undefined {
+  const n = parseInt(v, 10)
+  return Number.isFinite(n) ? n : undefined
+}
 
 export default function OnboardingPage() {
   const [cases, setCases] = useState<OnboardingCase[]>([])
   const [offers, setOffers] = useState<JobOffer[]>([])
-  const [depts, setDepts] = useState<Department[]>([])
-  const [desigs, setDesigs] = useState<Designation[]>([])
-  const [emps, setEmps] = useState<Employee[]>([])
-  const [loading, setLoading] = useState(true)
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [designations, setDesignations] = useState<Designation[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [error, setError] = useState('')
+  const [refreshToken, setRefreshToken] = useState(0)
 
-  const [fn, setFn] = useState('')
-  const [ln, setLn] = useState('')
-  const [em, setEm] = useState('')
-  const [jd, setJd] = useState('')
-  const [deptId, setDeptId] = useState<number | ''>('')
-  const [desigId, setDesigId] = useState<number | ''>('')
-  const [mgrId, setMgrId] = useState<number | ''>('')
-  const [offerId, setOfferId] = useState<number | ''>('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [formValues, setFormValues] = useState<OnboardingCreateFormValues>(EMPTY_ONBOARDING_FORM)
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof OnboardingCreateFormValues, string>>>({})
+  const [submitError, setSubmitError] = useState('')
+
+  const [tasksCaseId, setTasksCaseId] = useState<number | null>(null)
   const [newTaskNameByCase, setNewTaskNameByCase] = useState<Record<number, string>>({})
 
-  const load = () => {
-    setLoading(true)
-    Promise.all([
+  const [employeeDetailCase, setEmployeeDetailCase] = useState<OnboardingCase | null>(null)
+
+  const tasksCase = useMemo(() => cases.find((c) => c.id === tasksCaseId) ?? null, [cases, tasksCaseId])
+
+  const load = useCallback(() => {
+    return Promise.all([
       onboardingApi.list(),
       offersApi.listOffers(),
       departmentsApi.listAll(),
       designationsApi.listAll(),
       employeesApi.listAll(),
     ])
-      .then(([c, o, d, de, e]) => {
-        setCases(c)
-        setOffers(o.filter((x) => x.status === 'ACCEPTED' || x.status === 'JOINED'))
-        setDepts(d)
-        setDesigs(de)
-        setEmps(e)
+      .then(([caseList, offerList, deptList, desigList, empList]) => {
+        setCases(caseList)
+        setOffers(offerList.filter((o) => o.status === 'ACCEPTED' || o.status === 'JOINED'))
+        setDepartments(deptList)
+        setDesignations(desigList)
+        setEmployees(empList)
         setError('')
+        setRefreshToken((t) => t + 1)
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    load()
+      .catch((err) => setError(toErrorMessage(err)))
+      .finally(() => setInitialLoadDone(true))
   }, [])
 
-  const create = async () => {
-    if (!fn.trim() || !ln.trim() || !jd) {
-      setError('First name, last name, and join date required')
-      return
-    }
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const fetchOnboardingRows = useCallback(
+    async ({ page, pageSize }: GridQueryParams): Promise<GridQueryResult<OnboardingCase>> => {
+      const start = page * pageSize
+      return {
+        rows: cases.slice(start, start + pageSize),
+        totalRows: cases.length,
+      }
+    },
+    [cases],
+  )
+
+  const openEmployeeDetails = useCallback((c: OnboardingCase) => {
+    setEmployeeDetailCase(c)
+  }, [])
+
+  const columnDefs = useMemo(
+    () => getOnboardingColumnDefs({ onEmployeeDetails: openEmployeeDetails }),
+    [openEmployeeDetails],
+  )
+
+  const createFormFields = useMemo((): GenericFormFieldConfig<OnboardingCreateFormValues>[] => {
+    return [
+      { name: 'firstName', label: 'First name', required: true },
+      { name: 'lastName', label: 'Last name', required: true },
+      { name: 'email', label: 'Email', type: 'email' },
+      { name: 'joinDate', label: 'Join date', type: 'date', required: true },
+      {
+        name: 'departmentId',
+        label: 'Department',
+        type: 'select',
+        selectOptions: departments.map((d) => ({ value: String(d.id), label: d.name })),
+      },
+      {
+        name: 'designationId',
+        label: 'Designation',
+        type: 'select',
+        selectOptions: designations.map((d) => ({ value: String(d.id), label: d.name })),
+      },
+      {
+        name: 'managerId',
+        label: 'Manager',
+        type: 'select',
+        fullRow: true,
+        selectOptions: employees.map((e) => ({
+          value: String(e.id),
+          label: `${e.firstName} ${e.lastName}`,
+        })),
+      },
+      {
+        name: 'offerId',
+        label: 'Accepted / joined offer',
+        type: 'select',
+        fullRow: true,
+        selectOptions: offers.map((o) => ({
+          value: String(o.id),
+          label: `${o.candidateName} (#${o.id})`,
+        })),
+      },
+    ]
+  }, [departments, designations, employees, offers])
+
+  const validateField = useCallback((name: keyof OnboardingCreateFormValues, value: string): string => {
+    const trimmed = value.trim()
+    if (name === 'firstName' && !trimmed) return 'First name is required'
+    if (name === 'lastName' && !trimmed) return 'Last name is required'
+    if (name === 'joinDate' && !trimmed) return 'Join date is required'
+    return ''
+  }, [])
+
+  const validateForm = useCallback(
+    (values: OnboardingCreateFormValues) => {
+      const next: Partial<Record<keyof OnboardingCreateFormValues, string>> = {}
+      for (const key of ['firstName', 'lastName', 'joinDate'] as const) {
+        const err = validateField(key, values[key])
+        if (err) next[key] = err
+      }
+      return next
+    },
+    [validateField],
+  )
+
+  const handleFieldChange = useCallback((name: keyof OnboardingCreateFormValues, value: string) => {
+    setFormValues((prev) => ({ ...prev, [name]: value }))
+    setFormErrors((prev) => {
+      if (!prev[name]) return prev
+      return { ...prev, [name]: '' }
+    })
+  }, [])
+
+  const handleFieldBlur = useCallback(
+    (name: keyof OnboardingCreateFormValues) => {
+      setFormErrors((prev) => ({ ...prev, [name]: validateField(name, formValues[name]) }))
+    },
+    [formValues, validateField],
+  )
+
+  const openCreate = () => {
+    setFormValues(EMPTY_ONBOARDING_FORM)
+    setFormErrors({})
+    setSubmitError('')
+    setCreateOpen(true)
+  }
+
+  const closeCreate = () => setCreateOpen(false)
+
+  const handleCreateSubmit = async () => {
+    setSubmitError('')
+    const errors = validateForm(formValues)
+    setFormErrors(errors)
+    if (Object.values(errors).some(Boolean)) return
+
     try {
       await onboardingApi.create({
-        candidateFirstName: fn.trim(),
-        candidateLastName: ln.trim(),
-        candidateEmail: em || undefined,
-        joinDate: jd,
-        departmentId: deptId === '' ? undefined : (deptId as number),
-        designationId: desigId === '' ? undefined : (desigId as number),
-        managerId: mgrId === '' ? undefined : (mgrId as number),
-        offerId: offerId === '' ? undefined : (offerId as number),
+        candidateFirstName: formValues.firstName.trim(),
+        candidateLastName: formValues.lastName.trim(),
+        candidateEmail: formValues.email.trim() || undefined,
+        joinDate: formValues.joinDate,
+        departmentId: parseId(formValues.departmentId),
+        designationId: parseId(formValues.designationId),
+        managerId: parseId(formValues.managerId),
+        offerId: parseId(formValues.offerId),
       })
-      setFn('')
-      setLn('')
-      setEm('')
-      setJd('')
-      load()
+      closeCreate()
+      await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setSubmitError(toErrorMessage(e))
     }
   }
+
+  const bumpRefresh = useCallback(() => {
+    load()
+  }, [load])
 
   const toggleTask = async (caseId: number, taskId: number, done: boolean) => {
     try {
       await onboardingApi.toggleTask(caseId, taskId, done)
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(toErrorMessage(e))
     }
   }
 
@@ -105,7 +363,7 @@ export default function OnboardingPage() {
       await onboardingApi.updateTask(caseId, taskId, { status })
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(toErrorMessage(e))
     }
   }
 
@@ -117,7 +375,7 @@ export default function OnboardingPage() {
       await onboardingApi.updateTask(c.id, t.id, { comment: next })
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(toErrorMessage(e))
     }
   }
 
@@ -128,7 +386,7 @@ export default function OnboardingPage() {
       await onboardingApi.updateTask(c.id, t.id, { name: next })
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(toErrorMessage(e))
     }
   }
 
@@ -140,166 +398,278 @@ export default function OnboardingPage() {
       setNewTaskNameByCase((m) => ({ ...m, [caseId]: '' }))
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(toErrorMessage(e))
     }
   }
 
-  const complete = async (id: number) => {
+  const completeCase = async (id: number) => {
     if (!window.confirm('Create employee record, allocate leave balances for join year, and mark completed?')) return
     try {
       await onboardingApi.complete(id)
+      setTasksCaseId(null)
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(toErrorMessage(e))
     }
   }
 
-  if (loading) return <LoadingSpinner />
+  if (!initialLoadDone) return <LoadingSpinner />
 
   return (
-    <PageLayout title="Employee onboarding">
+    <PageLayout
+      title="Employee onboarding"
+      maxWidth="none"
+      actions={
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <AppButton component={Link} to="/hr" variant="outlined">
+            Back
+          </AppButton>
+          <AppButton variant="contained" onClick={openCreate}>
+            New onboarding case
+          </AppButton>
+        </Box>
+      }
+    >
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
         </Alert>
       )}
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <AppTypography variant="subtitle1" fontWeight={700} gutterBottom>
-          New onboarding case
-        </AppTypography>
-        <Stack spacing={2}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <AppTextField label="First name" value={fn} onChange={(e) => setFn(e.target.value)} size="small" />
-            <AppTextField label="Last name" value={ln} onChange={(e) => setLn(e.target.value)} size="small" />
-            <AppTextField label="Email" value={em} onChange={(e) => setEm(e.target.value)} size="small" />
-          </Stack>
-          <AppTextField
-            label="Join date"
-            type="date"
-            value={jd}
-            onChange={(e) => setJd(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            size="small"
-            sx={{ maxWidth: 200 }}
-          />
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Department</InputLabel>
-              <Select label="Department" value={deptId} onChange={(e) => setDeptId(e.target.value === '' ? '' : Number(e.target.value))}>
-                <MenuItem value="">—</MenuItem>
-                {depts.map((d) => (
-                  <MenuItem key={d.id} value={d.id}>
-                    {d.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Designation</InputLabel>
-              <Select label="Designation" value={desigId} onChange={(e) => setDesigId(e.target.value === '' ? '' : Number(e.target.value))}>
-                <MenuItem value="">—</MenuItem>
-                {desigs.map((d) => (
-                  <MenuItem key={d.id} value={d.id}>
-                    {d.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel>Manager</InputLabel>
-              <Select label="Manager" value={mgrId} onChange={(e) => setMgrId(e.target.value === '' ? '' : Number(e.target.value))}>
-                <MenuItem value="">—</MenuItem>
-                {emps.map((e) => (
-                  <MenuItem key={e.id} value={e.id}>
-                    {e.firstName} {e.lastName}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 220 }}>
-              <InputLabel>Accepted / joined offer</InputLabel>
-              <Select label="Accepted / joined offer" value={offerId} onChange={(e) => setOfferId(e.target.value === '' ? '' : Number(e.target.value))}>
-                <MenuItem value="">—</MenuItem>
-                {offers.map((o) => (
-                  <MenuItem key={o.id} value={o.id}>
-                    {o.candidateName} (#{o.id})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
-          <AppButton variant="contained" onClick={create}>
-            Create case
-          </AppButton>
-        </Stack>
-      </Paper>
+      <DataGrid<OnboardingCase>
+        columnDefs={columnDefs}
+        fetchRows={fetchOnboardingRows}
+        getRowId={(row) => String(row.id)}
+        refreshToken={refreshToken}
+        onRowClicked={(row) => setTasksCaseId(row.id)}
+        defaultPageSize={10}
+        pageSizeOptions={PAGE_SIZE_OPTIONS}
+        height="calc(100svh - 170px)"
+      />
 
-      <AppTypography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-        Cases
-      </AppTypography>
-      {cases.map((c) => (
-        <Accordion key={c.id} defaultExpanded disableGutters sx={{ mb: 1, border: 1, borderColor: 'divider', borderRadius: 1, '&:before': { display: 'none' } }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Box>
-              <AppTypography fontWeight={700}>
-                {c.candidateFirstName} {c.candidateLastName} — {c.status}
-              </AppTypography>
-              <AppTypography variant="body2" color="text.secondary">
-                Join {c.joinDate}
-                {c.employeeId != null ? ` · Employee #${c.employeeId}` : ''}
-              </AppTypography>
-            </Box>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={2}>
-              <AppTypography variant="subtitle2" fontWeight={700}>
-                Tasks
-              </AppTypography>
-              {c.tasks.map((t) => (
-                <TaskRow
-                  key={t.id}
-                  c={c}
-                  t={t}
-                  disabled={c.status === 'COMPLETED'}
-                  onToggle={toggleTask}
-                  onStatus={setTaskStatus}
-                  onSaveComment={saveTaskComment}
-                  onSaveName={saveTaskName}
-                />
-              ))}
-              {c.status !== 'COMPLETED' && (
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start">
-                  <AppTextField
-                    size="small"
-                    label="New task name"
-                    value={newTaskNameByCase[c.id] ?? ''}
-                    onChange={(e) => setNewTaskNameByCase((m) => ({ ...m, [c.id]: e.target.value }))}
-                    sx={{ minWidth: 240 }}
-                  />
-                  <AppButton variant="outlined" onClick={() => addTask(c.id)}>
-                    Add task
-                  </AppButton>
-                </Stack>
-              )}
+      <CommonInputForm<OnboardingCreateFormValues>
+        open={createOpen}
+        title="New onboarding case"
+        fields={createFormFields}
+        values={formValues}
+        errors={formErrors}
+        submitError={submitError}
+        onFieldChange={handleFieldChange}
+        onFieldBlur={handleFieldBlur}
+        onClose={closeCreate}
+        onSubmit={handleCreateSubmit}
+        submitLabel="Create case"
+        maxWidth="md"
+        fieldsPerRow={2}
+      />
 
-              <BankDetailsSection c={c} onSaved={load} />
+      <OnboardingCaseTasksDialog
+        open={tasksCase != null}
+        onboardingCase={tasksCase}
+        newTaskName={tasksCase ? (newTaskNameByCase[tasksCase.id] ?? '') : ''}
+        onNewTaskNameChange={(v) =>
+          tasksCase && setNewTaskNameByCase((m) => ({ ...m, [tasksCase.id]: v }))
+        }
+        onClose={() => setTasksCaseId(null)}
+        onToggleTask={toggleTask}
+        onSetTaskStatus={setTaskStatus}
+        onSaveComment={saveTaskComment}
+        onSaveName={saveTaskName}
+        onAddTask={addTask}
+        onComplete={completeCase}
+        onReload={bumpRefresh}
+      />
 
-              {c.status !== 'COMPLETED' && (
-                <AppButton variant="contained" color="success" onClick={() => complete(c.id)}>
-                  Complete (create employee)
-                </AppButton>
-              )}
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
-      ))}
-      {cases.length === 0 && (
-        <AppTypography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-          No onboarding cases yet.
-        </AppTypography>
-      )}
+      <EmployeeDetailsFromCaseDialog
+        key={employeeDetailCase?.employeeId != null ? `emp-${employeeDetailCase.employeeId}` : 'closed'}
+        open={employeeDetailCase != null}
+        onboardingCase={employeeDetailCase}
+        onClose={() => setEmployeeDetailCase(null)}
+      />
     </PageLayout>
+  )
+}
+
+function OnboardingCaseTasksDialog({
+  open,
+  onboardingCase: c,
+  newTaskName,
+  onNewTaskNameChange,
+  onClose,
+  onToggleTask,
+  onSetTaskStatus,
+  onSaveComment,
+  onSaveName,
+  onAddTask,
+  onComplete,
+  onReload,
+}: {
+  open: boolean
+  onboardingCase: OnboardingCase | null
+  newTaskName: string
+  onNewTaskNameChange: (v: string) => void
+  onClose: () => void
+  onToggleTask: (caseId: number, taskId: number, done: boolean) => void
+  onSetTaskStatus: (caseId: number, taskId: number, status: OnboardingTaskStatus) => void
+  onSaveComment: (c: OnboardingCase, t: OnboardingTask, draft: string) => void
+  onSaveName: (c: OnboardingCase, t: OnboardingTask, draft: string) => void
+  onAddTask: (caseId: number) => void
+  onComplete: (caseId: number) => void
+  onReload: () => void
+}) {
+  if (!c) return null
+  const isCompleted = c.status === 'COMPLETED'
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
+      <DialogTitle>
+        {c.candidateFirstName} {c.candidateLastName}
+        <AppTypography variant="body2" color="text.secondary" component="span" display="block" sx={{ mt: 0.5 }}>
+          {c.status} · Join {c.joinDate}
+          {c.employeeId != null ? ` · Employee #${c.employeeId}` : ''}
+        </AppTypography>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2}>
+          <AppTypography variant="subtitle2" fontWeight={700}>
+            Tasks
+          </AppTypography>
+          {c.tasks.map((t) => (
+            <TaskRow
+              key={`${c.id}-${t.id}-${t.name}-${t.comment ?? ''}`}
+              c={c}
+              t={t}
+              disabled={isCompleted}
+              onToggle={onToggleTask}
+              onStatus={onSetTaskStatus}
+              onSaveComment={onSaveComment}
+              onSaveName={onSaveName}
+            />
+          ))}
+          {!isCompleted && (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start">
+              <AppTextField
+                size="small"
+                label="New task name"
+                value={newTaskName}
+                onChange={(e) => onNewTaskNameChange(e.target.value)}
+                sx={{ minWidth: 240 }}
+              />
+              <AppButton variant="outlined" onClick={() => onAddTask(c.id)}>
+                Add task
+              </AppButton>
+            </Stack>
+          )}
+
+          <BankDetailsSection c={c} onSaved={onReload} />
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <AppButton onClick={onClose}>Close</AppButton>
+        {!isCompleted && (
+          <AppButton variant="contained" color="success" onClick={() => onComplete(c.id)}>
+            Complete (create employee)
+          </AppButton>
+        )}
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+function EmployeeDetailsFromCaseDialog({
+  open,
+  onboardingCase,
+  onClose,
+}: {
+  open: boolean
+  onboardingCase: OnboardingCase | null
+  onClose: () => void
+}) {
+  const [employee, setEmployee] = useState<Employee | null>(null)
+  const [fetchError, setFetchError] = useState('')
+
+  useEffect(() => {
+    if (!open || !onboardingCase?.employeeId) return
+    let cancelled = false
+    employeesApi
+      .get(onboardingCase.employeeId)
+      .then((e) => {
+        if (!cancelled) {
+          setEmployee(e)
+          setFetchError('')
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setFetchError(toErrorMessage(err))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, onboardingCase?.employeeId])
+
+  const b = onboardingCase?.bankDetails
+  const loadingEmployee =
+    open && onboardingCase?.employeeId != null && employee == null && fetchError === ''
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Employee details</DialogTitle>
+      <DialogContent dividers>
+        {onboardingCase && (
+          <AppTypography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            From onboarding: {onboardingCase.candidateFirstName} {onboardingCase.candidateLastName} (case #{onboardingCase.id})
+          </AppTypography>
+        )}
+        {loadingEmployee && <AppTypography variant="body2">Loading employee…</AppTypography>}
+        {fetchError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {fetchError}
+          </Alert>
+        )}
+        {employee && !loadingEmployee && (
+          <Stack spacing={1.5}>
+            <ReadOnlyField label="Employee code" value={employee.employeeCode ?? '—'} />
+            <ReadOnlyField label="Name" value={`${employee.firstName} ${employee.lastName}`} />
+            <ReadOnlyField label="Email" value={employee.email ?? '—'} />
+            <ReadOnlyField label="Mobile" value={employee.mobileNumber ?? '—'} />
+            <ReadOnlyField label="Department" value={employee.departmentName ?? '—'} />
+            <ReadOnlyField label="Designation" value={employee.designationName ?? '—'} />
+            <ReadOnlyField label="Manager" value={employee.managerName ?? '—'} />
+            <ReadOnlyField label="Joined" value={employee.joinedAt ?? '—'} />
+          </Stack>
+        )}
+
+        <Box sx={{ mt: 3 }}>
+          <AppTypography variant="subtitle2" fontWeight={700} gutterBottom>
+            Bank account (onboarding / payroll)
+          </AppTypography>
+          {b ? (
+            <Stack spacing={1}>
+              <ReadOnlyField label="Account holder" value={b.accountHolderName} />
+              <ReadOnlyField label="Bank" value={b.bankName} />
+              <ReadOnlyField label="Branch" value={b.branch ?? '—'} />
+              <ReadOnlyField label="Account number" value={b.accountNumber} />
+              <ReadOnlyField label="IFSC" value={b.ifscCode} />
+              <ReadOnlyField label="Account type" value={b.accountType} />
+              <ReadOnlyField label="Notes" value={b.notes ?? '—'} />
+            </Stack>
+          ) : (
+            <AppTypography variant="body2" color="text.secondary">
+              No bank details stored on this onboarding case.
+            </AppTypography>
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <AppButton onClick={onClose}>Close</AppButton>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <AppTextField size="small" label={label} value={value} fullWidth InputProps={{ readOnly: true }} />
   )
 }
 
@@ -322,11 +692,6 @@ function TaskRow({
 }) {
   const [nameDraft, setNameDraft] = useState(t.name)
   const [commentDraft, setCommentDraft] = useState(t.comment ?? '')
-
-  useEffect(() => {
-    setNameDraft(t.name)
-    setCommentDraft(t.comment ?? '')
-  }, [t.name, t.comment])
 
   return (
     <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
@@ -392,78 +757,23 @@ function TaskRow({
 }
 
 function BankDetailsSection({ c, onSaved }: { c: OnboardingCase; onSaved: () => void }) {
-  const b = c.bankDetails
-  const [holder, setHolder] = useState(b?.accountHolderName ?? '')
-  const [bankName, setBankName] = useState(b?.bankName ?? '')
-  const [branch, setBranch] = useState(b?.branch ?? '')
-  const [accountNumber, setAccountNumber] = useState(b?.accountNumber ?? '')
-  const [ifsc, setIfsc] = useState(b?.ifscCode ?? '')
-  const [accountType, setAccountType] = useState<'SAVINGS' | 'CURRENT'>(b?.accountType ?? 'SAVINGS')
-  const [notes, setNotes] = useState(b?.notes ?? '')
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    setHolder(b?.accountHolderName ?? '')
-    setBankName(b?.bankName ?? '')
-    setBranch(b?.branch ?? '')
-    setAccountNumber(b?.accountNumber ?? '')
-    setIfsc(b?.ifscCode ?? '')
-    setAccountType(b?.accountType ?? 'SAVINGS')
-    setNotes(b?.notes ?? '')
-  }, [b?.id, b?.updatedAt])
-
-  const save = async () => {
-    if (!holder.trim() || !bankName.trim() || !accountNumber.trim() || !ifsc.trim()) {
-      return
-    }
-    setSaving(true)
-    try {
-      await onboardingApi.saveBankDetails(c.id, {
-        accountHolderName: holder.trim(),
-        bankName: bankName.trim(),
-        branch: branch.trim() || null,
-        accountNumber: accountNumber.trim(),
-        ifscCode: ifsc.trim(),
-        accountType,
-        notes: notes.trim() || null,
-      })
-      onSaved()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const disabled = c.status === 'COMPLETED'
-
+  const bankDisabled = c.status === 'CANCELLED'
   return (
-    <Box sx={{ pt: 1 }}>
-      <AppTypography variant="subtitle2" fontWeight={700} gutterBottom>
-        Bank account (payroll)
-      </AppTypography>
-      <Stack spacing={1.5}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
-          <AppTextField size="small" label="Account holder name" value={holder} disabled={disabled} onChange={(e) => setHolder(e.target.value)} sx={{ minWidth: 200 }} />
-          <AppTextField size="small" label="Bank name" value={bankName} disabled={disabled} onChange={(e) => setBankName(e.target.value)} sx={{ minWidth: 200 }} />
-          <AppTextField size="small" label="Branch" value={branch} disabled={disabled} onChange={(e) => setBranch(e.target.value)} sx={{ minWidth: 160 }} />
-        </Stack>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
-          <AppTextField size="small" label="Account number" value={accountNumber} disabled={disabled} onChange={(e) => setAccountNumber(e.target.value)} sx={{ minWidth: 200 }} />
-          <AppTextField size="small" label="IFSC" value={ifsc} disabled={disabled} onChange={(e) => setIfsc(e.target.value)} sx={{ minWidth: 140 }} />
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Account type</InputLabel>
-            <Select label="Account type" value={accountType} disabled={disabled} onChange={(e) => setAccountType(e.target.value as 'SAVINGS' | 'CURRENT')}>
-              <MenuItem value="SAVINGS">Savings</MenuItem>
-              <MenuItem value="CURRENT">Current</MenuItem>
-            </Select>
-          </FormControl>
-        </Stack>
-        <AppTextField size="small" label="Notes" value={notes} disabled={disabled} onChange={(e) => setNotes(e.target.value)} fullWidth multiline minRows={2} />
-        {!disabled && (
-          <AppButton variant="outlined" onClick={save} disabled={saving}>
-            Save bank details
-          </AppButton>
-        )}
-      </Stack>
-    </Box>
+    <PayrollBankDetailsForm
+      bankDetails={c.bankDetails}
+      disabled={bankDisabled}
+      onSave={async (body) => {
+        await onboardingApi.saveBankDetails(c.id, {
+          accountHolderName: body.accountHolderName,
+          bankName: body.bankName,
+          branch: body.branch,
+          accountNumber: body.accountNumber,
+          ifscCode: body.ifscCode,
+          accountType: body.accountType,
+          notes: body.notes,
+        })
+        onSaved()
+      }}
+    />
   )
 }

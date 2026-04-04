@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, IconButton, TablePagination, Tooltip } from '@mui/material'
 import { alpha } from '@mui/material/styles'
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
@@ -42,12 +43,15 @@ export type DataGridActionConfig<T> = {
   onEdit?: (row: T) => void
   onDelete?: (row: T) => void
   onRefresh?: (row: T) => void
+  /** Payroll / bank details (e.g. employees grid). */
+  onPayrollBank?: (row: T) => void
 }
 
 type ActionCellRendererParams<T> = {
   onEdit?: (row: T) => void
   onDelete?: (row: T) => void
   onRefresh?: (row: T) => void
+  onPayrollBank?: (row: T) => void
 }
 
 function ActionsCellRenderer<T extends object>(
@@ -57,13 +61,20 @@ function ActionsCellRenderer<T extends object>(
 
   const rendererParams = (params.colDef.cellRendererParams ?? {}) as ActionCellRendererParams<T>
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, height: '100%' }}>
+    <Box
+      sx={{ display: 'flex', alignItems: 'center', gap: 0.75, height: '100%' }}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       {rendererParams.onEdit && (
         <Tooltip title="Edit">
           <IconButton
             size="small"
             color="primary"
-            onClick={() => rendererParams.onEdit?.(params.data!)}
+            onClick={(e) => {
+              e.stopPropagation()
+              rendererParams.onEdit?.(params.data!)
+            }}
             aria-label="Edit"
           >
             <EditOutlinedIcon fontSize="small" />
@@ -75,7 +86,10 @@ function ActionsCellRenderer<T extends object>(
           <IconButton
             size="small"
             color="error"
-            onClick={() => rendererParams.onDelete?.(params.data!)}
+            onClick={(e) => {
+              e.stopPropagation()
+              rendererParams.onDelete?.(params.data!)
+            }}
             aria-label="Delete"
           >
             <DeleteOutlineRoundedIcon fontSize="small" />
@@ -87,10 +101,28 @@ function ActionsCellRenderer<T extends object>(
           <IconButton
             size="small"
             color="primary"
-            onClick={() => rendererParams.onRefresh?.(params.data!)}
+            onClick={(e) => {
+              e.stopPropagation()
+              rendererParams.onRefresh?.(params.data!)
+            }}
             aria-label="Refresh"
           >
             <RefreshRoundedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+      {rendererParams.onPayrollBank && (
+        <Tooltip title="Payroll bank">
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={(e) => {
+              e.stopPropagation()
+              rendererParams.onPayrollBank?.(params.data!)
+            }}
+            aria-label="Payroll bank"
+          >
+            <AccountBalanceWalletOutlinedIcon fontSize="small" />
           </IconButton>
         </Tooltip>
       )}
@@ -103,6 +135,8 @@ type DataGridProps<T extends object> = {
   fetchRows: (params: GridQueryParams) => Promise<GridQueryResult<T>>
   getRowId: (row: T) => string
   actionConfig?: DataGridActionConfig<T>
+  /** Opens case/detail flows from the row; rows use a pointer cursor when set. */
+  onRowClicked?: (row: T) => void
   refreshToken?: number
   defaultPageSize?: number
   pageSizeOptions?: number[]
@@ -116,6 +150,7 @@ export function DataGrid<T extends object>({
   fetchRows,
   getRowId,
   actionConfig,
+  onRowClicked,
   refreshToken,
   defaultPageSize = 10,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
@@ -141,10 +176,18 @@ export function DataGrid<T extends object>({
     if (!actionConfig) return columnDefs
 
     const hasActions =
-      actionConfig.onEdit != null || actionConfig.onDelete != null || actionConfig.onRefresh != null
+      actionConfig.onEdit != null ||
+      actionConfig.onDelete != null ||
+      actionConfig.onRefresh != null ||
+      actionConfig.onPayrollBank != null
     if (!hasActions) return columnDefs
 
-    const actionCount = [actionConfig.onEdit, actionConfig.onDelete, actionConfig.onRefresh].filter(Boolean).length
+    const actionCount = [
+      actionConfig.onEdit,
+      actionConfig.onDelete,
+      actionConfig.onRefresh,
+      actionConfig.onPayrollBank,
+    ].filter(Boolean).length
 
     const hasActionsColumn = columnDefs.some((columnDef) => columnDef.colId === '__actions__')
     if (hasActionsColumn) return columnDefs
@@ -163,6 +206,7 @@ export function DataGrid<T extends object>({
         onEdit: actionConfig.onEdit,
         onDelete: actionConfig.onDelete ? (row: T) => handleDeleteClick(row) : undefined,
         onRefresh: actionConfig.onRefresh,
+        onPayrollBank: actionConfig.onPayrollBank,
       } as ActionCellRendererParams<T>,
     }
 
@@ -311,6 +355,14 @@ export function DataGrid<T extends object>({
           headerHeight={40}
           animateRows
           suppressCellFocus
+          rowStyle={onRowClicked ? { cursor: 'pointer' } : undefined}
+          onRowClicked={
+            onRowClicked
+              ? (e) => {
+                  if (e.data) onRowClicked(e.data)
+                }
+              : undefined
+          }
           onSortChanged={handleSortChanged}
           onFilterChanged={handleFilterChanged}
           loading={loading}
