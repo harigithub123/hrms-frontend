@@ -428,8 +428,6 @@ export const compensationApi = {
     notes?: string | null
     lines: { componentId: number; amount: number; frequency: 'MONTHLY' | 'YEARLY' | 'ONE_TIME'; payableOn?: string | null }[]
   }) => apiFetch<EmployeeCompensation>('/compensation', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
-  syncStructure: (id: number) =>
-    apiFetch<SalaryStructure>(`/compensation/${id}/sync-structure`, { method: 'POST' }).then(handleOk),
 }
 
 export const offersApi = {

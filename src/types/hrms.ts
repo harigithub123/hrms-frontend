@@ -186,7 +186,7 @@ export interface RoleInfo {
   name: string
 }
 
-/** Compensation package (authoring; sync to salary structure from UI) */
+/** Compensation package (authoring; payroll reads this for pay runs) */
 export interface CompensationLine {
   id: number
   componentId: number

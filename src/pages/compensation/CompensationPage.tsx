@@ -183,16 +183,6 @@ export default function CompensationPage() {
     }
   }
 
-  const syncStructure = useCallback(async (row: EmployeeCompensation) => {
-    try {
-      await compensationApi.syncStructure(row.id)
-      setError('')
-      window.alert('Salary structure saved from compensation.')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
-    }
-  }, [])
-
   const openLinesDialog = useCallback((row: EmployeeCompensation) => {
     setSelected(row)
     setOpenLines(true)
@@ -208,12 +198,8 @@ export default function CompensationPage() {
   )
 
   const columnDefs = useMemo(
-    () =>
-      getCompensationColumnDefs({
-        onViewLines: openLinesDialog,
-        onSyncStructure: syncStructure,
-      }),
-    [openLinesDialog, syncStructure],
+    () => getCompensationColumnDefs({ onViewLines: openLinesDialog }),
+    [openLinesDialog],
   )
 
   if (loading) return <LoadingSpinner />
