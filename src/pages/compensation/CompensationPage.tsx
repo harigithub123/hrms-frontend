@@ -363,7 +363,7 @@ export default function CompensationPage() {
               {(selected?.lines ?? []).map((l) => (
                 <TableRow key={l.id}>
                   <TableCell>
-                    {l.componentCode} — {l.componentName}
+                    {l.componentName}
                   </TableCell>
                   <TableCell>{l.frequency}</TableCell>
                   <TableCell>{l.payableOn ?? '—'}</TableCell>
