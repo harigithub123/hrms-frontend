@@ -526,10 +526,37 @@ export const onboardingApi = {
     apiFetch<OnboardingCase>(`/onboarding/${id}/status?status=${encodeURIComponent(status)}`, {
       method: 'PATCH',
     }).then(handleOk),
-  toggleTask: (caseId: number, taskId: number, done: boolean) =>
+  addTask: (caseId: number, body: { name: string }) =>
+    apiFetch<OnboardingCase>(`/onboarding/${caseId}/tasks`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then(handleOk),
+  updateTask: (
+    caseId: number,
+    taskId: number,
+    body: { done?: boolean | null; status?: string | null; comment?: string | null; name?: string | null },
+  ) =>
     apiFetch<OnboardingTask>(`/onboarding/${caseId}/tasks/${taskId}`, {
       method: 'PATCH',
-      body: JSON.stringify({ done }),
+      body: JSON.stringify(body),
+    }).then(handleOk),
+  toggleTask: (caseId: number, taskId: number, done: boolean) =>
+    onboardingApi.updateTask(caseId, taskId, { done }),
+  saveBankDetails: (
+    caseId: number,
+    body: {
+      accountHolderName: string
+      bankName: string
+      branch?: string | null
+      accountNumber: string
+      ifscCode: string
+      accountType: string
+      notes?: string | null
+    },
+  ) =>
+    apiFetch<OnboardingCase>(`/onboarding/${caseId}/bank-details`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
     }).then(handleOk),
   complete: (id: number) =>
     apiFetch<OnboardingCase>(`/onboarding/${id}/complete`, { method: 'POST' }).then(handleOk),

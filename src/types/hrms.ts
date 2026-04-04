@@ -242,11 +242,40 @@ export interface JobOffer {
 
 export type OnboardingStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 
+export type OnboardingTaskStatus = 'PENDING' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE' | 'CANCELLED'
+
+export interface OnboardingTaskAudit {
+  id: number
+  action: string
+  detail: string | null
+  createdAt: string
+  createdByUsername: string | null
+}
+
 export interface OnboardingTask {
   id: number
-  label: string
+  name: string
+  status: OnboardingTaskStatus
   done: boolean
+  comment: string | null
   sortOrder: number
+  auditHistory: OnboardingTaskAudit[]
+}
+
+export type OnboardingBankAccountType = 'SAVINGS' | 'CURRENT'
+
+export interface OnboardingBankDetails {
+  id: number
+  caseId: number
+  accountHolderName: string
+  bankName: string
+  branch: string | null
+  accountNumber: string
+  ifscCode: string
+  accountType: OnboardingBankAccountType
+  notes: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface OnboardingCase {
@@ -268,6 +297,7 @@ export interface OnboardingCase {
   notes: string | null
   createdAt: string
   tasks: OnboardingTask[]
+  bankDetails: OnboardingBankDetails | null
 }
 
 export type AdvanceStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAID' | 'RECOVERY_COMPLETE'
