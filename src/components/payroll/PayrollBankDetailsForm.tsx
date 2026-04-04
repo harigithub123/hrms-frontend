@@ -11,6 +11,8 @@ export type PayrollBankFormPayload = {
   ifscCode: string
   accountType: 'SAVINGS' | 'CURRENT'
   notes: string | null
+  /** ISO date yyyy-MM-dd */
+  effectiveFrom: string
 }
 
 type PayrollBankDetailsFormProps = {
@@ -35,6 +37,7 @@ export function PayrollBankDetailsForm({
   const [ifsc, setIfsc] = useState(b?.ifscCode ?? '')
   const [accountType, setAccountType] = useState<'SAVINGS' | 'CURRENT'>(b?.accountType ?? 'SAVINGS')
   const [notes, setNotes] = useState(b?.notes ?? '')
+  const [effectiveFrom, setEffectiveFrom] = useState(() => b?.effectiveFrom ?? '')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -45,12 +48,14 @@ export function PayrollBankDetailsForm({
     setIfsc(b?.ifscCode ?? '')
     setAccountType(b?.accountType ?? 'SAVINGS')
     setNotes(b?.notes ?? '')
+    setEffectiveFrom(b?.effectiveFrom ?? '')
   }, [
     b?.accountHolderName,
     b?.accountNumber,
     b?.accountType,
     b?.bankName,
     b?.branch,
+    b?.effectiveFrom,
     b?.id,
     b?.ifscCode,
     b?.notes,
@@ -61,6 +66,9 @@ export function PayrollBankDetailsForm({
     if (!holder.trim() || !bankName.trim() || !accountNumber.trim() || !ifsc.trim()) {
       return
     }
+    const eff =
+      effectiveFrom.trim() ||
+      new Date().toISOString().slice(0, 10)
     setSaving(true)
     try {
       await onSave({
@@ -71,6 +79,7 @@ export function PayrollBankDetailsForm({
         ifscCode: ifsc.trim(),
         accountType,
         notes: notes.trim() || null,
+        effectiveFrom: eff,
       })
     } finally {
       setSaving(false)
@@ -111,6 +120,16 @@ export function PayrollBankDetailsForm({
             sx={{ minWidth: 160 }}
           />
         </Stack>
+        <AppTextField
+          size="small"
+          label="Effective from (payroll)"
+          type="date"
+          value={effectiveFrom}
+          disabled={disabled}
+          onChange={(e) => setEffectiveFrom(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          sx={{ maxWidth: 220 }}
+        />
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
           <AppTextField
             size="small"

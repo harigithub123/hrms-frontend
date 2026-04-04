@@ -25,6 +25,7 @@ import type {
   LeaveType,
   EmployeePayrollBankContext,
   OnboardingCase,
+  PayrollBankAudit,
   OnboardingTask,
   PayRun,
   Payslip,
@@ -553,15 +554,21 @@ export const onboardingApi = {
       ifscCode: string
       accountType: string
       notes?: string | null
+      effectiveFrom?: string | null
     },
   ) =>
     apiFetch<OnboardingCase>(`/onboarding/${caseId}/bank-details`, {
       method: 'PUT',
       body: JSON.stringify(body),
     }).then(handleOk),
-  getPayrollBankByEmployee: (employeeId: number) =>
-    apiFetch<EmployeePayrollBankContext>(`/onboarding/employee/${employeeId}/payroll-bank`).then(handleOk),
-  savePayrollBankByEmployee: (
+  complete: (id: number) =>
+    apiFetch<OnboardingCase>(`/onboarding/${id}/complete`, { method: 'POST'     }).then(handleOk),
+}
+
+export const payrollBankApi = {
+  getByEmployee: (employeeId: number) =>
+    apiFetch<EmployeePayrollBankContext>(`/payroll-bank/employees/${employeeId}`).then(handleOk),
+  saveByEmployee: (
     employeeId: number,
     body: {
       accountHolderName: string
@@ -571,14 +578,15 @@ export const onboardingApi = {
       ifscCode: string
       accountType: string
       notes?: string | null
+      effectiveFrom?: string | null
     },
   ) =>
-    apiFetch<OnboardingCase>(`/onboarding/employee/${employeeId}/payroll-bank`, {
+    apiFetch<EmployeePayrollBankContext>(`/payroll-bank/employees/${employeeId}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     }).then(handleOk),
-  complete: (id: number) =>
-    apiFetch<OnboardingCase>(`/onboarding/${id}/complete`, { method: 'POST' }).then(handleOk),
+  audits: (employeeId: number) =>
+    apiFetch<PayrollBankAudit[]>(`/payroll-bank/employees/${employeeId}/audits`).then(handleOk),
 }
 
 export const advancesApi = {

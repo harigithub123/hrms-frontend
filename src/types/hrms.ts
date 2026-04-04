@@ -266,7 +266,7 @@ export type OnboardingBankAccountType = 'SAVINGS' | 'CURRENT'
 
 export interface OnboardingBankDetails {
   id: number
-  caseId: number
+  caseId: number | null
   accountHolderName: string
   bankName: string
   branch: string | null
@@ -274,15 +274,25 @@ export interface OnboardingBankDetails {
   ifscCode: string
   accountType: OnboardingBankAccountType
   notes: string | null
+  effectiveFrom: string | null
   createdAt: string
   updatedAt: string
 }
 
-/** Payroll bank stored on the linked onboarding case (GET/PUT by employee for HR maintenance). */
+/** linked = onboarding case exists; payroll bank may still exist without it (employee payroll bank table). */
 export interface EmployeePayrollBankContext {
   linked: boolean
   onboardingCaseId: number | null
   bankDetails: OnboardingBankDetails | null
+}
+
+export interface PayrollBankAudit {
+  id: number
+  action: string
+  detail: string | null
+  createdByUserId: number | null
+  createdByUsername: string | null
+  createdAt: string
 }
 
 export interface OnboardingCase {

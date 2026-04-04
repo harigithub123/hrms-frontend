@@ -93,7 +93,7 @@ function OnboardingMenuCell(
             menuParams.onEmployeeDetails(c)
           }}
         >
-          View employee details
+          View Details
         </MenuItem>
       </Menu>
     </Box>
@@ -651,6 +651,7 @@ function EmployeeDetailsFromCaseDialog({
               <ReadOnlyField label="Account number" value={b.accountNumber} />
               <ReadOnlyField label="IFSC" value={b.ifscCode} />
               <ReadOnlyField label="Account type" value={b.accountType} />
+              <ReadOnlyField label="Effective from (payroll)" value={b.effectiveFrom ?? '—'} />
               <ReadOnlyField label="Notes" value={b.notes ?? '—'} />
             </Stack>
           ) : (
@@ -771,6 +772,7 @@ function BankDetailsSection({ c, onSaved }: { c: OnboardingCase; onSaved: () => 
           ifscCode: body.ifscCode,
           accountType: body.accountType,
           notes: body.notes,
+          effectiveFrom: body.effectiveFrom,
         })
         onSaved()
       }}

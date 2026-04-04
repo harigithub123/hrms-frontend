@@ -55,6 +55,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Attendance', path: '/attendance' },
       { label: 'My payslips', path: '/payslips' },
       { label: 'Advances', path: '/advances' },
+      { label: 'My profile', path: '/profile', matchPaths: ['/profile'] },
     ],
   },
   {
@@ -312,7 +313,7 @@ export default function AppShell() {
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
               <MenuItem component={Link} to="/profile" onClick={handleMenuClose}>
-                User details
+                My profile
               </MenuItem>
               <MenuItem onClick={handleLogout}>Logout</MenuItem>
             </Menu>
