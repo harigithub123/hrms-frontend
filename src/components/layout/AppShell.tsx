@@ -75,7 +75,6 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'HR & payroll',
     collapsible: true,
     items: [
-      { label: 'HR overview', path: '/hr', roles: ['HR', 'ADMIN'] },
       { label: 'Leave admin', path: '/leave/admin', roles: ['HR', 'ADMIN'] },
       { label: 'Payroll', path: '/payroll', roles: ['HR', 'ADMIN'] },
       { label: 'Onboarding', path: '/hr/onboarding', roles: ['HR', 'ADMIN'] },

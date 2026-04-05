@@ -22,7 +22,6 @@ export function getAppBarTitle(pathname: string): string {
     { prefix: '/advances', label: 'Advances' },
     { prefix: '/profile', label: 'My profile' },
     { prefix: '/admin', label: 'Admin' },
-    { prefix: '/hr', label: 'HR' },
     { prefix: '/leave', label: 'Leave' },
   ]
 

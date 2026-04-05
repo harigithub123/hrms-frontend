@@ -24,7 +24,7 @@ export type GenericFormFieldConfig<TValues extends Record<string, string>> = {
   rows?: number
   maxLength?: number
   /** Defaults to text; use `select` with `selectOptions`. */
-  type?: 'text' | 'email' | 'date' | 'select' | 'number'
+  type?: 'text' | 'email' | 'date' | 'time' | 'select' | 'number'
   selectOptions?: Array<{ value: string; label: string }>
   min?: number
   max?: number
@@ -68,6 +68,7 @@ type CommonInputFormProps<TValues extends Record<string, string>> = {
   onClose: () => void
   onSubmit: () => void
   submitLabel?: string
+  submitDisabled?: boolean
   /** Defaults to `sm`. Use `md` when `extraContent` needs more horizontal space. */
   maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | false
   /**
@@ -90,6 +91,7 @@ export function CommonInputForm<TValues extends Record<string, string>>({
   onClose,
   onSubmit,
   submitLabel = 'Save',
+  submitDisabled = false,
   maxWidth = 'sm',
   fieldsPerRow = 1,
 }: CommonInputFormProps<TValues>) {
@@ -120,6 +122,29 @@ export function CommonInputForm<TValues extends Record<string, string>>({
             step: field.step ?? 1,
             readOnly: field.readOnly ?? undefined,
           }}
+        />
+      )
+    }
+
+    if (field.type === 'time') {
+      return (
+        <AppTextField
+          label={field.label}
+          type="time"
+          value={values[field.name]}
+          onChange={(event) => {
+            if (field.readOnly) return
+            onFieldChange(field.name, event.target.value)
+          }}
+          onBlur={() => {
+            if (field.readOnly) return
+            onFieldBlur(field.name)
+          }}
+          error={!!errors[field.name]}
+          helperText={errors[field.name]}
+          margin="dense"
+          required={field.required}
+          InputLabelProps={{ shrink: true }}
         />
       )
     }
@@ -161,7 +186,8 @@ export function CommonInputForm<TValues extends Record<string, string>>({
       )
     }
 
-    const inputType = field.type === 'date' ? 'date' : field.type === 'email' ? 'email' : 'text'
+    const inputType =
+      field.type === 'date' ? 'date' : field.type === 'email' ? 'email' : 'text'
 
     return (
       <AppTextField
@@ -217,7 +243,9 @@ export function CommonInputForm<TValues extends Record<string, string>>({
       </DialogContent>
       <DialogActions>
         <AppButton onClick={onClose}>Cancel</AppButton>
-        <AppButton variant="contained" onClick={onSubmit}>{submitLabel}</AppButton>
+        <AppButton variant="contained" onClick={onSubmit} disabled={submitDisabled}>
+          {submitLabel}
+        </AppButton>
       </DialogActions>
     </Dialog>
   )

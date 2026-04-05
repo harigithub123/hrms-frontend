@@ -4,7 +4,6 @@ import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import AdminPage from './pages/AdminPage'
-import HrPage from './pages/HrPage'
 import DepartmentsPage from './pages/department/DepartmentsPage'
 import DesignationsPage from './pages/designations/DesignationsPage'
 import EmployeesPage from './pages/employees/EmployeesPage'
@@ -13,11 +12,11 @@ import LeavePage from './pages/LeavePage'
 import LeaveCalendarPage from './pages/LeaveCalendarPage'
 import LeaveAdminPage from './pages/leave-admin/LeaveAdminPage'
 import LeaveReportPage from './pages/LeaveReportPage'
-import LeaveApprovalsPage from './pages/LeaveApprovalsPage'
-import AttendancePage from './pages/AttendancePage'
+import LeaveApprovalsPage from './pages/leave-approvals/LeaveApprovalsPage'
+import AttendancePage from './pages/attendance/AttendancePage'
 import PayrollPage from './pages/payroll/PayrollPage'
-import UserRolesPage from './pages/UserRolesPage'
-import PayslipsPage from './pages/PayslipsPage'
+import UserRolesPage from './pages/user-roles/UserRolesPage'
+import PayslipsPage from './pages/payslips/PayslipsPage'
 import OnboardingPage from './pages/OnboardingPage'
 import OffersPage from './pages/offers/OffersPage'
 import CompensationPage from './pages/compensation/CompensationPage'
@@ -42,7 +41,7 @@ function App() {
           >
             <Route path="/" element={<DashboardPage />} />
             <Route path="/admin" element={<AdminPage />} />
-            <Route path="/hr" element={<HrPage />} />
+            <Route path="/hr" element={<Navigate to="/" replace />} />
             <Route path="/departments" element={<DepartmentsPage />} />
             <Route path="/designations" element={<DesignationsPage />} />
             <Route path="/employees" element={<EmployeesPage />} />

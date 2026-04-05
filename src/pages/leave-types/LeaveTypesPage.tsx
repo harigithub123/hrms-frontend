@@ -194,7 +194,7 @@ export default function LeaveTypesPage() {
       maxWidth="none"
       actions={
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <AppButton component={Link} to="/hr" variant="outlined">
+          <AppButton component={Link} to="/" variant="outlined">
             Back
           </AppButton>
           <AppButton variant="contained" onClick={openCreate}>
