@@ -320,7 +320,7 @@ export default function CompensationPage() {
                       <MenuItem value={0}>—</MenuItem>
                       {components.map((c) => (
                         <MenuItem key={c.id} value={c.id}>
-                          {c.code} — {c.name}
+                          {c.name}
                         </MenuItem>
                       ))}
                     </Select>

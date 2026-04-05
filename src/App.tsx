@@ -23,7 +23,7 @@ import OffersPage from './pages/offers/OffersPage'
 import CompensationPage from './pages/compensation/CompensationPage'
 import LeaveTypesPage from './pages/leave-types/LeaveTypesPage'
 import SalaryComponentsPage from './pages/salary-components/SalaryComponentsPage'
-import AdvancesPage from './pages/AdvancesPage'
+import AdvancesPage from './pages/advances/AdvancesPage'
 import AppShell from './components/layout/AppShell'
 import './App.css'
 
