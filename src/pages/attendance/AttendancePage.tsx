@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  Alert,
-  Box,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-} from '@mui/material'
+import { Alert, Autocomplete, Box } from '@mui/material'
 import { attendanceApi, employeesApi } from '../../api/client'
 import type { Employee } from '../../types/org'
 import type { AttendanceRecord, AttendanceStatus } from '../../types/hrms'
 import { AppButton, AppTextField, AppTypography, PageLayout } from '../../components/ui'
 import { useAuth } from '../../contexts/AuthContext'
-import { CommonInputForm, DataGrid, type GridQueryParams } from '../../components/shared'
+import {
+  CommonInputForm,
+  DataGrid,
+  type GenericFormFieldConfig,
+  type GridQueryParams,
+} from '../../components/shared'
 import { getAttendanceColumnDefs } from './attendanceColumns'
 import { applyAttendanceGridQuery } from './attendanceGridQuery'
 import {
@@ -50,6 +48,21 @@ export default function AttendancePage() {
     employeesApi.listAll().then(setEmployees).catch(() => {})
   }, [])
 
+  const formFields = useMemo((): Array<GenericFormFieldConfig<AttendanceEntryFormValues>> => {
+    const employeeField: GenericFormFieldConfig<AttendanceEntryFormValues> = {
+      name: 'employeeId',
+      label: 'Employee',
+      type: 'select',
+      required: true,
+      fullRow: true,
+      selectOptions: employees.map((e) => ({
+        value: String(e.id),
+        label: `${e.firstName} ${e.lastName}`.trim() || `Employee #${e.id}`,
+      })),
+    }
+    return [employeeField, ...ATTENDANCE_ENTRY_FORM_CONFIG]
+  }, [employees])
+
   useEffect(() => {
     if (employeeId === '') {
       setRecords([])
@@ -76,24 +89,27 @@ export default function AttendancePage() {
     }
   }, [employeeId, from, to, refreshToken])
 
-  const validateField = useCallback((name: keyof AttendanceEntryFormValues, value: string): string => {
-    const field = ATTENDANCE_ENTRY_FORM_CONFIG.find((item) => item.name === name)
-    if (!field) return ''
-    const trimmed = value.trim()
-    if (field.required && !trimmed) return `${field.label} is required`
-    return ''
-  }, [])
+  const validateField = useCallback(
+    (name: keyof AttendanceEntryFormValues, value: string): string => {
+      const field = formFields.find((item) => item.name === name)
+      if (!field) return ''
+      const trimmed = value.trim()
+      if (field.required && !trimmed) return `${field.label} is required`
+      return ''
+    },
+    [formFields],
+  )
 
   const validateForm = useCallback(
     (values: AttendanceEntryFormValues) => {
       const next: Partial<Record<keyof AttendanceEntryFormValues, string>> = {}
-      for (const field of ATTENDANCE_ENTRY_FORM_CONFIG) {
+      for (const field of formFields) {
         const error = validateField(field.name, values[field.name])
         if (error) next[field.name] = error
       }
       return next
     },
-    [validateField],
+    [formFields, validateField],
   )
 
   const handleFieldChange = useCallback((name: keyof AttendanceEntryFormValues, value: string) => {
@@ -112,7 +128,10 @@ export default function AttendancePage() {
   )
 
   const openCreate = () => {
-    setFormValues(EMPTY_ATTENDANCE_ENTRY_FORM)
+    setFormValues({
+      ...EMPTY_ATTENDANCE_ENTRY_FORM,
+      employeeId: employeeId === '' ? '' : String(employeeId),
+    })
     setFormErrors({})
     setSubmitError('')
     setOpen(true)
@@ -121,16 +140,21 @@ export default function AttendancePage() {
   const close = () => setOpen(false)
 
   const handleSubmit = async () => {
-    if (employeeId === '') return
     setSubmitError('')
     const errors = validateForm(formValues)
     setFormErrors(errors)
     if (Object.values(errors).some(Boolean)) return
 
+    const id = Number(formValues.employeeId)
+    if (!Number.isFinite(id) || id <= 0) {
+      setSubmitError('Select an employee')
+      return
+    }
+
     setSaving(true)
     try {
       await attendanceApi.upsert({
-        employeeId: employeeId as number,
+        employeeId: id,
         workDate: formValues.workDate,
         checkIn: formValues.checkIn.trim() || null,
         checkOut: formValues.checkOut.trim() || null,
@@ -138,6 +162,7 @@ export default function AttendancePage() {
         notes: formValues.notes.trim() || null,
       })
       close()
+      setEmployeeId(id)
       setRefreshToken((t) => t + 1)
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed')
@@ -157,44 +182,50 @@ export default function AttendancePage() {
 
   const columnDefs = useMemo(() => getAttendanceColumnDefs(), [])
 
+  const selectedEmployee = useMemo(
+    () => (employeeId === '' ? null : employees.find((e) => e.id === employeeId) ?? null),
+    [employeeId, employees],
+  )
+
   return (
     <PageLayout
       maxWidth="none"
-      actions={
-        isHr ? (
-          <AppButton variant="contained" disabled={employeeId === ''} onClick={openCreate}>
-            Add / edit day
-          </AppButton>
-        ) : null
-      }
+      actions={isHr ? <AppButton variant="contained" onClick={openCreate}>Add / edit day</AppButton> : null}
     >
       {listLoadError && employeeId !== '' && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setListLoadError('')}>
           {listLoadError}
         </Alert>
       )}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-        <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel>Employee</InputLabel>
-          <Select
-            label="Employee"
-            value={employeeId}
-            onChange={(e) => setEmployeeId(e.target.value === '' ? '' : Number(e.target.value))}
-          >
-            <MenuItem value="">—</MenuItem>
-            {employees.map((e) => (
-              <MenuItem key={e.id} value={e.id}>
-                {e.firstName} {e.lastName}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 1,
+          alignItems: 'center',
+          mb: 2,
+        }}
+      >
+        <Autocomplete
+          size="small"
+          options={employees}
+          getOptionLabel={(e) => `${e.firstName} ${e.lastName}`.trim() || `Employee #${e.id}`}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          value={selectedEmployee}
+          onChange={(_, v) => setEmployeeId(v?.id ?? '')}
+          sx={{ flex: '1 1 220px', minWidth: 200, maxWidth: { xs: '100%', sm: 420 } }}
+          renderInput={(params) => (
+            <AppTextField {...params} label="Employee" placeholder="Search by name…" />
+          )}
+        />
         <AppTextField
           label="From"
           type="date"
           value={from}
           onChange={(ev) => setFrom(ev.target.value)}
           InputLabelProps={{ shrink: true }}
+          sx={{ width: { xs: '100%', sm: 160 }, flexShrink: 0 }}
         />
         <AppTextField
           label="To"
@@ -202,6 +233,7 @@ export default function AttendancePage() {
           value={to}
           onChange={(ev) => setTo(ev.target.value)}
           InputLabelProps={{ shrink: true }}
+          sx={{ width: { xs: '100%', sm: 160 }, flexShrink: 0 }}
         />
       </Box>
 
@@ -225,7 +257,7 @@ export default function AttendancePage() {
       <CommonInputForm<AttendanceEntryFormValues>
         open={open}
         title="Attendance entry"
-        fields={ATTENDANCE_ENTRY_FORM_CONFIG}
+        fields={formFields}
         values={formValues}
         errors={formErrors}
         submitError={submitError}

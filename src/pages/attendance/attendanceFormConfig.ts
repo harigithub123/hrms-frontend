@@ -1,6 +1,7 @@
 import type { GenericFormFieldConfig } from '../../components/shared'
 
 export type AttendanceEntryFormValues = {
+  employeeId: string
   workDate: string
   checkIn: string
   checkOut: string
@@ -13,6 +14,7 @@ const STATUS_OPTIONS = (['PRESENT', 'ABSENT', 'HALF_DAY', 'LEAVE', 'REMOTE'] as 
   label: s,
 }))
 
+/** Dialog fields after Employee (employee select is built in the page with options). */
 export const ATTENDANCE_ENTRY_FORM_CONFIG: Array<GenericFormFieldConfig<AttendanceEntryFormValues>> = [
   { name: 'workDate', label: 'Work date', type: 'date', required: true },
   { name: 'checkIn', label: 'Check in', type: 'time' },
@@ -28,6 +30,7 @@ export const ATTENDANCE_ENTRY_FORM_CONFIG: Array<GenericFormFieldConfig<Attendan
 ]
 
 export const EMPTY_ATTENDANCE_ENTRY_FORM: AttendanceEntryFormValues = {
+  employeeId: '',
   workDate: '',
   checkIn: '',
   checkOut: '',
