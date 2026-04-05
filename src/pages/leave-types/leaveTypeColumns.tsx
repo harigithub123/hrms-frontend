@@ -8,7 +8,6 @@ function yesNo(value: boolean): string {
 export function getLeaveTypeColumnDefs(): ColDef<LeaveType>[] {
   return [
     { headerName: 'Name', field: 'name' },
-    { headerName: 'Code', field: 'code' },
     {
       headerName: 'Days / year',
       field: 'daysPerYear',
