@@ -293,6 +293,18 @@ export interface PayrollBankAudit {
   createdByUserId: number | null
   createdByUsername: string | null
   createdAt: string
+  /** Effective-from date parsed server-side from the post-change snapshot (yyyy-MM-dd). */
+  effectiveFrom?: string | null
+}
+
+/** HR grid row: employee plus current payroll bank display (employee_payroll_bank or onboarding fallback). */
+export interface EmployeePayrollBankSummary {
+  employeeId: number
+  firstName: string
+  lastName: string
+  employeeCode: string | null
+  departmentName: string | null
+  bankDetails: OnboardingBankDetails | null
 }
 
 export interface OnboardingCase {

@@ -3,11 +3,10 @@ import { Link } from 'react-router-dom'
 import { Box } from '@mui/material'
 import { departmentsApi, designationsApi, employeesApi } from '../../api/client'
 import type { Department, Designation, Employee, EmployeeRequest } from '../../types/org'
-import { AppButton, PageLayout } from '../../components/ui'
+import { AppButton, AppTextField, PageLayout } from '../../components/ui'
 import { CommonInputForm, DataGrid } from '../../components/shared'
 import type { DataGridActionConfig, GridQueryParams, GridQueryResult } from '../../components/shared'
 import { getEmployeeColumnDefs } from './employeeColumns'
-import { EmployeePayrollBankDialog } from './EmployeePayrollBankDialog'
 import {
   EMPTY_EMPLOYEE_FORM,
   EMPLOYEE_TEXT_RULES,
@@ -19,6 +18,8 @@ const PAGE_SIZE_OPTIONS = [10, 15, 20, 50]
 
 export default function EmployeesPage() {
   const [refreshToken, setRefreshToken] = useState(0)
+  const [searchDraft, setSearchDraft] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [departments, setDepartments] = useState<Department[]>([])
   const [designations, setDesignations] = useState<Designation[]>([])
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
@@ -28,9 +29,6 @@ export default function EmployeesPage() {
   const [formValues, setFormValues] = useState<EmployeeFormValues>(EMPTY_EMPLOYEE_FORM)
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof EmployeeFormValues, string>>>({})
   const [submitError, setSubmitError] = useState('')
-  const [bankDialogOpen, setBankDialogOpen] = useState(false)
-  const [bankEmployee, setBankEmployee] = useState<Employee | null>(null)
-
   useEffect(() => {
     Promise.all([departmentsApi.listAll(), designationsApi.listAll(), employeesApi.listAll()]).then(
       ([dept, des, allEmp]) => {
@@ -89,13 +87,20 @@ export default function EmployeesPage() {
     [validateField],
   )
 
-  const fetchRows = useCallback(async ({ page, pageSize }: GridQueryParams): Promise<GridQueryResult<Employee>> => {
-    const paged = await employeesApi.list(page, pageSize)
-    return {
-      rows: paged.content,
-      totalRows: paged.totalElements,
-    }
-  }, [])
+  const applySearch = useCallback(() => {
+    setSearchQuery(searchDraft.trim())
+  }, [searchDraft])
+
+  const fetchRows = useCallback(
+    async ({ page, pageSize }: GridQueryParams): Promise<GridQueryResult<Employee>> => {
+      const paged = await employeesApi.list(page, pageSize, searchQuery || undefined)
+      return {
+        rows: paged.content,
+        totalRows: paged.totalElements,
+      }
+    },
+    [searchQuery],
+  )
 
   const handleFieldChange = useCallback((name: keyof EmployeeFormValues, value: string) => {
     setFormValues((prev) => ({ ...prev, [name]: value }))
@@ -171,11 +176,6 @@ export default function EmployeesPage() {
     }
   }
 
-  const openPayrollBank = useCallback((row: Employee) => {
-    setBankEmployee(row)
-    setBankDialogOpen(true)
-  }, [])
-
   const handleDelete = useCallback(async (id: number) => {
     if (!window.confirm('Delete this employee?')) return
     try {
@@ -192,9 +192,8 @@ export default function EmployeesPage() {
     () => ({
       onEdit: openEdit,
       onDelete: (row) => handleDelete(row.id),
-      onPayrollBank: openPayrollBank,
     }),
-    [handleDelete, openEdit, openPayrollBank],
+    [handleDelete, openEdit],
   )
 
   const columnDefs = useMemo(() => getEmployeeColumnDefs(), [])
@@ -214,7 +213,23 @@ export default function EmployeesPage() {
         </Box>
       }
     >
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 2 }}>
+        <AppTextField
+          placeholder="Search by name, code, email, or mobile…"
+          value={searchDraft}
+          onChange={(e) => setSearchDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') applySearch()
+          }}
+          sx={{ flex: '1 1 260px', minWidth: 200, maxWidth: 480 }}
+        />
+        <AppButton variant="outlined" onClick={applySearch}>
+          Search
+        </AppButton>
+      </Box>
+
       <DataGrid<Employee>
+        key={searchQuery}
         columnDefs={columnDefs}
         fetchRows={fetchRows}
         getRowId={(row) => String(row.id)}
@@ -237,16 +252,6 @@ export default function EmployeesPage() {
         onClose={close}
         onSubmit={handleSubmit}
         submitLabel="Save"
-      />
-
-      <EmployeePayrollBankDialog
-        open={bankDialogOpen}
-        employee={bankEmployee}
-        onClose={() => {
-          setBankDialogOpen(false)
-          setBankEmployee(null)
-        }}
-        onSaved={() => setRefreshToken((value) => value + 1)}
       />
     </PageLayout>
   )

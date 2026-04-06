@@ -20,6 +20,7 @@ import PayslipsPage from './pages/payslips/PayslipsPage'
 import OnboardingPage from './pages/OnboardingPage'
 import OffersPage from './pages/offers/OffersPage'
 import CompensationPage from './pages/compensation/CompensationPage'
+import HrHolidaysPage from './pages/hr-holidays/HrHolidaysPage'
 import LeaveTypesPage from './pages/leave-types/LeaveTypesPage'
 import SalaryComponentsPage from './pages/salary-components/SalaryComponentsPage'
 import AdvancesPage from './pages/advances/AdvancesPage'
@@ -65,6 +66,7 @@ function App() {
             <Route path="/hr/onboarding" element={<OnboardingPage />} />
             <Route path="/hr/offers" element={<OffersPage />} />
             <Route path="/hr/compensation" element={<CompensationPage />} />
+            <Route path="/hr/holidays" element={<HrHolidaysPage />} />
             <Route path="/hr/leave-types" element={<LeaveTypesPage />} />
             <Route path="/hr/salary-components" element={<SalaryComponentsPage />} />
             <Route path="/advances" element={<AdvancesPage />} />

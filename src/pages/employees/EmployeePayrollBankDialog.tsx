@@ -1,10 +1,29 @@
-import { useEffect, useState } from 'react'
-import { Alert, Box, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  Alert,
+  Box,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormHelperText,
+  InputLabel,
+  MenuItem,
+  Select,
+} from '@mui/material'
 import { payrollBankApi } from '../../api/client'
-import type { EmployeePayrollBankContext, PayrollBankAudit } from '../../types/hrms'
+import type { EmployeePayrollBankContext } from '../../types/hrms'
 import type { Employee } from '../../types/org'
-import { AppButton, AppTypography } from '../../components/ui'
-import { PayrollBankDetailsForm } from '../../components/payroll/PayrollBankDetailsForm'
+import { AppButton, AppTextField, AppTypography } from '../../components/ui'
+import { getFormFieldsGridSx } from '../../components/shared'
+import type { GenericFormFieldConfig } from '../../components/shared'
+import {
+  PAYROLL_BANK_FORM_CONFIG,
+  createEmptyPayrollBankForm,
+  todayIsoDate,
+  type PayrollBankFormValues,
+} from './employeePayrollBankFormConfig'
 
 function toErrorMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'Failed'
@@ -15,13 +34,91 @@ type EmployeePayrollBankDialogProps = {
   employee: Employee | null
   onClose: () => void
   onSaved: () => void
+  /**
+   * When true (payroll tab): form is always empty for a new bank change; current active bank is shown read-only only.
+   * When false: form is initialised from existing bank details (legacy; no callers today).
+   */
+  addNewOnly?: boolean
 }
 
-export function EmployeePayrollBankDialog({ open, employee, onClose, onSaved }: EmployeePayrollBankDialogProps) {
+const FORM_COLS = 2
+
+function renderFormField(
+  field: GenericFormFieldConfig<PayrollBankFormValues>,
+  values: PayrollBankFormValues,
+  errors: Partial<Record<keyof PayrollBankFormValues, string>>,
+  onFieldChange: (name: keyof PayrollBankFormValues, value: string) => void,
+  onFieldBlur: (name: keyof PayrollBankFormValues) => void,
+) {
+  if (field.type === 'select') {
+    return (
+      <FormControl fullWidth size="small" margin="dense" error={!!errors[field.name]} required={field.required}>
+        <InputLabel>{field.label}</InputLabel>
+        <Select
+          label={field.label}
+          value={values[field.name]}
+          onChange={(e) => onFieldChange(field.name, e.target.value as string)}
+          onBlur={() => onFieldBlur(field.name)}
+        >
+          <MenuItem value="">
+            <em>—</em>
+          </MenuItem>
+          {(field.selectOptions ?? []).map((opt) => (
+            <MenuItem key={`${field.name}-${opt.value}`} value={opt.value}>
+              {opt.label}
+            </MenuItem>
+          ))}
+        </Select>
+        {errors[field.name] ? <FormHelperText>{errors[field.name]}</FormHelperText> : null}
+      </FormControl>
+    )
+  }
+
+  const inputType = field.type === 'date' ? 'date' : 'text'
+
+  return (
+    <AppTextField
+      size="small"
+      label={field.label}
+      type={inputType}
+      value={values[field.name]}
+      onChange={(event) => onFieldChange(field.name, event.target.value)}
+      onBlur={() => onFieldBlur(field.name)}
+      error={!!errors[field.name]}
+      helperText={errors[field.name]}
+      margin="dense"
+      required={field.required}
+      multiline={field.multiline}
+      rows={field.rows}
+      inputProps={field.maxLength ? { maxLength: field.maxLength } : undefined}
+      InputLabelProps={inputType === 'date' ? { shrink: true } : undefined}
+      fullWidth
+    />
+  )
+}
+
+function formatDisplayDate(iso: string | null | undefined): string {
+  if (iso == null || iso === '') return '—'
+  try {
+    return new Date(iso + 'T12:00:00').toLocaleDateString()
+  } catch {
+    return iso
+  }
+}
+
+export function EmployeePayrollBankDialog({
+  open,
+  employee,
+  onClose,
+  onSaved,
+  addNewOnly = false,
+}: EmployeePayrollBankDialogProps) {
   const [context, setContext] = useState<EmployeePayrollBankContext | null>(null)
-  const [audits, setAudits] = useState<PayrollBankAudit[] | null>(null)
   const [loadError, setLoadError] = useState('')
-  const [auditError, setAuditError] = useState('')
+  const [formValues, setFormValues] = useState<PayrollBankFormValues>(createEmptyPayrollBankForm)
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof PayrollBankFormValues, string>>>({})
+  const [submitError, setSubmitError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!open || !employee) return
@@ -42,24 +139,113 @@ export function EmployeePayrollBankDialog({ open, employee, onClose, onSaved }: 
     }
   }, [open, employee])
 
-  const loadAudits = () => {
-    if (!employee) return
-    setAuditError('')
-    payrollBankApi
-      .audits(employee.id)
-      .then(setAudits)
-      .catch((e) => setAuditError(toErrorMessage(e)))
-  }
+  useEffect(() => {
+    if (!open || !employee || !context) return
+    if (addNewOnly) {
+      setFormValues(createEmptyPayrollBankForm())
+    } else {
+      const bd = context.bankDetails
+      if (!bd) {
+        setFormValues(createEmptyPayrollBankForm())
+      } else {
+        setFormValues({
+          accountHolderName: bd.accountHolderName ?? '',
+          bankName: bd.bankName ?? '',
+          branch: bd.branch ?? '',
+          accountNumber: bd.accountNumber ?? '',
+          ifscCode: bd.ifscCode ?? '',
+          accountType: bd.accountType ?? 'SAVINGS',
+          notes: bd.notes ?? '',
+          effectiveFrom: bd.effectiveFrom?.slice(0, 10) ?? todayIsoDate(),
+        })
+      }
+    }
+    setFormErrors({})
+    setSubmitError('')
+  }, [open, employee?.id, context, context?.bankDetails?.id, context?.bankDetails?.updatedAt, addNewOnly])
+
+  const validateField = useCallback((name: keyof PayrollBankFormValues, value: string): string => {
+    const field = PAYROLL_BANK_FORM_CONFIG.find((item) => item.name === name)
+    if (!field) return ''
+    const trimmed = value.trim()
+    if (field.required && !trimmed) return `${field.label} is required`
+    if (field.maxLength && value.length > field.maxLength) return `${field.label} cannot exceed ${field.maxLength} characters`
+    if (name === 'effectiveFrom' && trimmed) {
+      const today = todayIsoDate()
+      if (trimmed < today) {
+        return 'Effective date cannot be in the past; backdating can conflict with payslips already processed.'
+      }
+    }
+    return ''
+  }, [])
+
+  const validateForm = useCallback(
+    (values: PayrollBankFormValues) => {
+      const next: Partial<Record<keyof PayrollBankFormValues, string>> = {}
+      for (const field of PAYROLL_BANK_FORM_CONFIG) {
+        const error = validateField(field.name, values[field.name])
+        if (error) next[field.name] = error
+      }
+      return next
+    },
+    [validateField],
+  )
+
+  const handleFieldChange = useCallback((name: keyof PayrollBankFormValues, value: string) => {
+    setFormValues((prev) => ({ ...prev, [name]: value }))
+    setFormErrors((prev) => {
+      if (!prev[name]) return prev
+      return { ...prev, [name]: '' }
+    })
+  }, [])
+
+  const handleFieldBlur = useCallback(
+    (name: keyof PayrollBankFormValues) => {
+      setFormErrors((prev) => ({ ...prev, [name]: validateField(name, formValues[name]) }))
+    },
+    [formValues, validateField],
+  )
 
   const handleClose = () => {
     setContext(null)
-    setAudits(null)
     setLoadError('')
-    setAuditError('')
+    setSubmitError('')
+    setFormErrors({})
+    setFormValues(createEmptyPayrollBankForm())
     onClose()
   }
 
-  const title = employee ? `${employee.firstName} ${employee.lastName} — payroll bank` : 'Payroll bank'
+  const handleSubmit = async () => {
+    if (!employee) return
+    setSubmitError('')
+    const errors = validateForm(formValues)
+    setFormErrors(errors)
+    if (Object.values(errors).some(Boolean)) return
+
+    setSaving(true)
+    try {
+      const nextCtx = await payrollBankApi.saveByEmployee(employee.id, {
+        accountHolderName: formValues.accountHolderName.trim(),
+        bankName: formValues.bankName.trim(),
+        branch: formValues.branch.trim() || null,
+        accountNumber: formValues.accountNumber.trim(),
+        ifscCode: formValues.ifscCode.trim(),
+        accountType: formValues.accountType.trim(),
+        notes: formValues.notes.trim() || null,
+        effectiveFrom: formValues.effectiveFrom.trim(),
+      })
+      setContext(nextCtx)
+      onSaved()
+    } catch (e) {
+      setSubmitError(toErrorMessage(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const name = employee ? `${employee.firstName} ${employee.lastName}`.trim() : ''
+  const title =
+    addNewOnly && name ? `${name} — add payroll bank` : employee ? `${name} — payroll bank` : 'Payroll bank'
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth scroll="paper">
@@ -83,61 +269,48 @@ export function EmployeePayrollBankDialog({ open, employee, onClose, onSaved }: 
                 stored on the employee payroll record.
               </Alert>
             )}
-            <PayrollBankDetailsForm
-              bankDetails={context.bankDetails}
-              disabled={false}
-              showHeading={false}
-              onSave={async (body) => {
-                const next = await payrollBankApi.saveByEmployee(employee.id, {
-                  accountHolderName: body.accountHolderName,
-                  bankName: body.bankName,
-                  branch: body.branch,
-                  accountNumber: body.accountNumber,
-                  ifscCode: body.ifscCode,
-                  accountType: body.accountType,
-                  notes: body.notes,
-                  effectiveFrom: body.effectiveFrom,
-                })
-                setContext(next)
-                setAudits(null)
-                onSaved()
-              }}
-            />
-            <AppTypography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-              Changes are written to the employee payroll bank store and audited. If an onboarding case exists, it is
-              kept in sync for reference.
-            </AppTypography>
-            <AppButton variant="text" size="small" sx={{ mt: 1 }} onClick={loadAudits}>
-              Load audit history
-            </AppButton>
-            {auditError && (
-              <Alert severity="warning" sx={{ mt: 1 }}>
-                {auditError}
+            {addNewOnly && context.bankDetails && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Current active bank (read-only): {context.bankDetails.bankName} · IFSC {context.bankDetails.ifscCode} ·
+                effective {formatDisplayDate(context.bankDetails.effectiveFrom)}. Enter the new bank details below; the
+                active record updates only after you add with a valid effective date.
               </Alert>
             )}
-            {audits && audits.length > 0 && (
-              <BoxAudits audits={audits} />
+            {submitError && (
+              <AppTypography color="error" variant="body2" sx={{ mb: 1 }}>
+                {submitError}
+              </AppTypography>
             )}
+            <Box sx={getFormFieldsGridSx(FORM_COLS)}>
+              {PAYROLL_BANK_FORM_CONFIG.map((field) => (
+                <Box
+                  key={field.name}
+                  sx={{
+                    minWidth: 0,
+                    gridColumn: {
+                      xs: '1 / -1',
+                      sm: FORM_COLS <= 1 || field.fullRow ? '1 / -1' : 'span 1',
+                    },
+                  }}
+                >
+                  {renderFormField(field, formValues, formErrors, handleFieldChange, handleFieldBlur)}
+                </Box>
+              ))}
+            </Box>
+            <AppTypography variant="caption" color="text.secondary" display="block" sx={{ mt: 2 }}>
+              {addNewOnly
+                ? 'New details are saved to the payroll bank store with your effective date and audited. Existing rows are not edited in this form. Use the history icon on the grid to review past versions.'
+                : 'Changes are written to the employee payroll bank store and audited. If an onboarding case exists, it is kept in sync for reference. Use Payroll → Employee bank details → history to view past changes.'}
+            </AppTypography>
           </>
         )}
       </DialogContent>
       <DialogActions>
-        <AppButton onClick={handleClose}>Close</AppButton>
+        <AppButton onClick={handleClose}>Cancel</AppButton>
+        <AppButton variant="contained" onClick={handleSubmit} disabled={saving || !context || !!loadError}>
+          {addNewOnly ? 'Add' : 'Save'}
+        </AppButton>
       </DialogActions>
     </Dialog>
-  )
-}
-
-function BoxAudits({ audits }: { audits: PayrollBankAudit[] }) {
-  return (
-    <Box sx={{ mt: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      {audits.slice(0, 20).map((a) => (
-        <AppTypography key={a.id} variant="caption" color="text.secondary" display="block" sx={{ mb: 0.75 }}>
-          {new Date(a.createdAt).toLocaleString()}
-          {a.createdByUsername ? ` · ${a.createdByUsername}` : ''} · {a.action}
-          {a.detail ? `: ${a.detail}` : ''}
-        </AppTypography>
-      ))}
-    </Box>
   )
 }

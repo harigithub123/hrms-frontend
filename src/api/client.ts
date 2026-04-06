@@ -24,6 +24,7 @@ import type {
   LeaveRequestStatus,
   LeaveType,
   EmployeePayrollBankContext,
+  EmployeePayrollBankSummary,
   OnboardingCase,
   PayrollBankAudit,
   OnboardingTask,
@@ -130,10 +131,23 @@ export async function getUsersMe(): Promise<AuthResponse['user']> {
   return result.data
 }
 
+function messageFromErrorBody(body: Record<string, unknown>, res: Response): string {
+  const pick = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : '')
+  return (
+    pick(body.message) ||
+    pick(body.detail) ||
+    (pick(body.title) && body.title !== 'Bad Request' ? pick(body.title) : '') ||
+    pick(body.error) ||
+    (res.statusText && res.statusText !== '' ? res.statusText : '') ||
+    `Request failed (${res.status})`
+  )
+}
+
 async function handleOk<T>(result: { ok: true; data: T } | { ok: false; error: Response }): Promise<T> {
   if (!result.ok) {
-    const err = await result.error.json().catch(() => ({})) as { message?: string }
-    throw new Error(err.message ?? 'Request failed')
+    const res = result.error
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    throw new Error(messageFromErrorBody(body, res))
   }
   return result.data
 }
@@ -241,8 +255,12 @@ export const meApi = {
 }
 
 export const employeesApi = {
-  list: (page = 0, size = 10) =>
-    apiFetch<PagedResponse<Employee>>(`/employees${buildPageParams(page, size)}`).then(handleOk),
+  list: (page = 0, size = 10, q?: string) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size) })
+    const trimmed = q?.trim()
+    if (trimmed) params.set('q', trimmed)
+    return apiFetch<PagedResponse<Employee>>(`/employees?${params.toString()}`).then(handleOk)
+  },
   listAll: () => apiFetch<Employee[]>('/employees/all').then(handleOk),
   get: (id: number) => apiFetch<Employee>(`/employees/${id}`).then(handleOk),
   create: (body: EmployeeRequest) => apiFetch<Employee>('/employees', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
@@ -265,6 +283,11 @@ export const rolesApi = {
 
 export const holidaysApi = {
   list: (year: number) => apiFetch<Holiday[]>(`/holidays?year=${year}`).then(handleOk),
+  create: (body: { holidayDate: string; name: string }) =>
+    apiFetch<Holiday>('/holidays', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
+  update: (id: number, body: { holidayDate: string; name: string }) =>
+    apiFetch<Holiday>(`/holidays/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
+  delete: (id: number) => apiFetch<void>(`/holidays/${id}`, { method: 'DELETE' }).then(handleOk),
 }
 
 export const leaveTypesApi = {
@@ -566,6 +589,8 @@ export const onboardingApi = {
 }
 
 export const payrollBankApi = {
+  listEmployeeSummaries: () =>
+    apiFetch<EmployeePayrollBankSummary[]>(`/payroll-bank/hr/employee-summaries`).then(handleOk),
   getByEmployee: (employeeId: number) =>
     apiFetch<EmployeePayrollBankContext>(`/payroll-bank/employees/${employeeId}`).then(handleOk),
   saveByEmployee: (

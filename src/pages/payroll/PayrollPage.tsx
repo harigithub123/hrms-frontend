@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Alert, Box } from '@mui/material'
+import { Alert, Box, Tab, Tabs } from '@mui/material'
 import { payrollApi } from '../../api/client'
 import type { PayRun, Payslip } from '../../types/hrms'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../../components/ui'
 import { DataGrid } from '../../components/shared'
 import type { GridQueryParams, GridQueryResult } from '../../components/shared'
 import { getPayRunColumnDefs, getPayslipColumnDefs } from './payrollColumns'
+import { PayrollEmployeeBankTab } from './PayrollEmployeeBankTab'
 
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 50]
 
 export default function PayrollPage() {
+  const [mainTab, setMainTab] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -124,56 +126,71 @@ export default function PayrollPage() {
           {error}
         </Alert>
       )}
-      <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 1, mb: 2 }}>
-        <AppTextField
-          sx={{ width: 180 }}
-          label="Period start"
-          type="date"
-          value={runStart}
-          onChange={(e) => setRunStart(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-        <AppTextField
-          sx={{ width: 180 }}
-          label="Period end"
-          type="date"
-          value={runEnd}
-          onChange={(e) => setRunEnd(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-        />
-        <AppButton variant="contained" onClick={createRun} sx={{ width: 150 }}>
-          Generate pay run
-        </AppButton>
-      </Box>
-      <AppTypography variant="subtitle2" sx={{ mb: 1 }}>
-        Runs
-      </AppTypography>
-      <DataGrid<PayRun>
-        columnDefs={payRunColumns}
-        fetchRows={fetchRunRows}
-        getRowId={(row) => String(row.id)}
-        refreshToken={runsRefresh}
-        defaultPageSize={10}
-        pageSizeOptions={PAGE_SIZE_OPTIONS}
-        height="calc(100svh - 300px)"
-      />
+      <Tabs
+        value={mainTab}
+        onChange={(_, v) => setMainTab(v)}
+        sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
+      >
+        <Tab label="Pay runs" />
+        <Tab label="Employee bank details" />
+      </Tabs>
 
-      {selectedRun !== '' && (
+      {mainTab === 0 && (
         <>
-          <AppTypography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-            Payslips (run {selectedRun})
+          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 1, mb: 2 }}>
+            <AppTextField
+              sx={{ width: 180 }}
+              label="Period start"
+              type="date"
+              value={runStart}
+              onChange={(e) => setRunStart(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <AppTextField
+              sx={{ width: 180 }}
+              label="Period end"
+              type="date"
+              value={runEnd}
+              onChange={(e) => setRunEnd(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <AppButton variant="contained" onClick={createRun} sx={{ width: 150 }}>
+              Generate pay run
+            </AppButton>
+          </Box>
+          <AppTypography variant="subtitle2" sx={{ mb: 1 }}>
+            Runs
           </AppTypography>
-          <DataGrid<Payslip>
-            columnDefs={payslipColumns}
-            fetchRows={fetchPayslipRows}
+          <DataGrid<PayRun>
+            columnDefs={payRunColumns}
+            fetchRows={fetchRunRows}
             getRowId={(row) => String(row.id)}
-            refreshToken={selectedRun}
+            refreshToken={runsRefresh}
             defaultPageSize={10}
             pageSizeOptions={PAGE_SIZE_OPTIONS}
-            height="calc(100svh - 380px)"
+            height="calc(100svh - 300px)"
           />
+
+          {selectedRun !== '' && (
+            <>
+              <AppTypography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                Payslips (run {selectedRun})
+              </AppTypography>
+              <DataGrid<Payslip>
+                columnDefs={payslipColumns}
+                fetchRows={fetchPayslipRows}
+                getRowId={(row) => String(row.id)}
+                refreshToken={selectedRun}
+                defaultPageSize={10}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                height="calc(100svh - 380px)"
+              />
+            </>
+          )}
         </>
       )}
+
+      {mainTab === 1 && <PayrollEmployeeBankTab />}
     </PageLayout>
   )
 }

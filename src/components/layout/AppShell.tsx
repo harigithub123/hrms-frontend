@@ -80,6 +80,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Onboarding', path: '/hr/onboarding', roles: ['HR', 'ADMIN'] },
       { label: 'Offers', path: '/hr/offers', roles: ['HR', 'ADMIN'] },
       { label: 'Compensation', path: '/hr/compensation', roles: ['HR', 'ADMIN'] },
+      { label: 'Holidays', path: '/hr/holidays', roles: ['HR', 'ADMIN'] },
     ],
   },
   {
