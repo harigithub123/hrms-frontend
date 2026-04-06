@@ -78,6 +78,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Leave admin', path: '/leave/admin', roles: ['HR', 'ADMIN'] },
       { label: 'Payroll', path: '/payroll', roles: ['HR', 'ADMIN'] },
       { label: 'Onboarding', path: '/hr/onboarding', roles: ['HR', 'ADMIN'] },
+      { label: 'Separation & letters', path: '/hr/separation-board', roles: ['HR', 'ADMIN'] },
       { label: 'Offers', path: '/hr/offers', roles: ['HR', 'ADMIN'] },
       { label: 'Compensation', path: '/hr/compensation', roles: ['HR', 'ADMIN'] },
       { label: 'Holidays', path: '/hr/holidays', roles: ['HR', 'ADMIN'] },

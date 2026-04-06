@@ -22,6 +22,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { departmentsApi, designationsApi, employeesApi, onboardingApi, offersApi } from '../api/client'
 import type { JobOffer, OnboardingCase, OnboardingTask, OnboardingTaskStatus } from '../types/hrms'
 import type { Department, Designation, Employee } from '../types/org'
+import { formatEmploymentStatus } from '../types/org'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
 import { PayrollBankDetailsForm } from '../components/payroll/PayrollBankDetailsForm'
 import { CommonInputForm, DataGrid } from '../components/shared'
@@ -490,7 +491,7 @@ export default function OnboardingPage() {
   )
 }
 
-function OnboardingCaseTasksDialog({
+export function OnboardingCaseTasksDialog({
   open,
   onboardingCase: c,
   newTaskName,
@@ -503,6 +504,7 @@ function OnboardingCaseTasksDialog({
   onAddTask,
   onComplete,
   onReload,
+  showCompleteCaseAction = true,
 }: {
   open: boolean
   onboardingCase: OnboardingCase | null
@@ -516,9 +518,12 @@ function OnboardingCaseTasksDialog({
   onAddTask: (caseId: number) => void
   onComplete: (caseId: number) => void
   onReload: () => void
+  /** When false, hides “Complete (create employee)” (e.g. separation / exit letter board). */
+  showCompleteCaseAction?: boolean
 }) {
   if (!c) return null
-  const isCompleted = c.status === 'COMPLETED'
+  const tasksReadOnly =
+    c.status === 'CANCELLED' || (c.status === 'COMPLETED' && c.employeeId == null)
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
@@ -527,6 +532,7 @@ function OnboardingCaseTasksDialog({
         <AppTypography variant="body2" color="text.secondary" component="span" display="block" sx={{ mt: 0.5 }}>
           {c.status} · Join {c.joinDate}
           {c.employeeId != null ? ` · Employee #${c.employeeId}` : ''}
+          {c.employeeEmploymentStatus != null ? ` · ${formatEmploymentStatus(c.employeeEmploymentStatus)}` : ''}
         </AppTypography>
       </DialogTitle>
       <DialogContent dividers>
@@ -539,14 +545,14 @@ function OnboardingCaseTasksDialog({
               key={`${c.id}-${t.id}-${t.name}-${t.comment ?? ''}`}
               c={c}
               t={t}
-              disabled={isCompleted}
+              disabled={tasksReadOnly}
               onToggle={onToggleTask}
               onStatus={onSetTaskStatus}
               onSaveComment={onSaveComment}
               onSaveName={onSaveName}
             />
           ))}
-          {!isCompleted && (
+          {!tasksReadOnly && (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start">
               <AppTextField
                 size="small"
@@ -566,7 +572,7 @@ function OnboardingCaseTasksDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
         <AppButton onClick={onClose}>Close</AppButton>
-        {!isCompleted && (
+        {showCompleteCaseAction && !tasksReadOnly && (
           <AppButton variant="contained" color="success" onClick={() => onComplete(c.id)}>
             Complete (create employee)
           </AppButton>

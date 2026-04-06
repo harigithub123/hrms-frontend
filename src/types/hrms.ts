@@ -1,3 +1,5 @@
+import type { EmploymentStatus } from './org'
+
 export interface Holiday {
   id: number
   holidayDate: string
@@ -321,6 +323,7 @@ export interface OnboardingCase {
   managerId: number | null
   managerName: string | null
   employeeId: number | null
+  employeeEmploymentStatus: EmploymentStatus | null
   offerId: number | null
   assignedHrUserId: number | null
   notes: string | null

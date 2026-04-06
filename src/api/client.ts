@@ -587,6 +587,12 @@ export const onboardingApi = {
     apiFetch<OnboardingCase>(`/onboarding/${id}/complete`, { method: 'POST'     }).then(handleOk),
 }
 
+export const separationBoardApi = {
+  list: () => apiFetch<OnboardingCase[]>('/hr/separation-board').then(handleOk),
+  sync: () =>
+    apiFetch<OnboardingCase[]>('/hr/separation-board/sync', { method: 'POST' }).then(handleOk),
+}
+
 export const payrollBankApi = {
   listEmployeeSummaries: () =>
     apiFetch<EmployeePayrollBankSummary[]>(`/payroll-bank/hr/employee-summaries`).then(handleOk),

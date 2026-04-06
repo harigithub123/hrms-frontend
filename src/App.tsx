@@ -18,6 +18,7 @@ import PayrollPage from './pages/payroll/PayrollPage'
 import UserRolesPage from './pages/user-roles/UserRolesPage'
 import PayslipsPage from './pages/payslips/PayslipsPage'
 import OnboardingPage from './pages/OnboardingPage'
+import SeparationBoardPage from './pages/SeparationBoardPage'
 import OffersPage from './pages/offers/OffersPage'
 import CompensationPage from './pages/compensation/CompensationPage'
 import HrHolidaysPage from './pages/hr-holidays/HrHolidaysPage'
@@ -64,6 +65,7 @@ function App() {
             />
             <Route path="/payslips" element={<PayslipsPage />} />
             <Route path="/hr/onboarding" element={<OnboardingPage />} />
+            <Route path="/hr/separation-board" element={<SeparationBoardPage />} />
             <Route path="/hr/offers" element={<OffersPage />} />
             <Route path="/hr/compensation" element={<CompensationPage />} />
             <Route path="/hr/holidays" element={<HrHolidaysPage />} />

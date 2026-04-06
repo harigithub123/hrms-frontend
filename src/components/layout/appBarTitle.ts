@@ -17,6 +17,7 @@ export function getAppBarTitle(pathname: string): string {
     { prefix: '/hr/leave-types', label: 'Leave types' },
     { prefix: '/hr/salary-components', label: 'Salary components' },
     { prefix: '/hr/onboarding', label: 'Onboarding' },
+    { prefix: '/hr/separation-board', label: 'Separation & exit letters' },
     { prefix: '/hr/offers', label: 'Offers' },
     { prefix: '/hr/compensation', label: 'Compensation' },
     { prefix: '/hr/holidays', label: 'Company holidays' },
