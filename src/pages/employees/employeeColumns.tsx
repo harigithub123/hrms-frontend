@@ -1,5 +1,5 @@
 import type { ColDef } from 'ag-grid-community'
-import type { Employee } from '../../types/org'
+import { formatEmploymentStatus, type Employee } from '../../types/org'
 
 export function getEmployeeColumnDefs(): ColDef<Employee>[] {
   return [
@@ -28,6 +28,12 @@ export function getEmployeeColumnDefs(): ColDef<Employee>[] {
       headerName: 'Manager',
       field: 'managerName',
       valueFormatter: (p) => (p.value == null || p.value === '' ? '—' : String(p.value)),
+    },
+    {
+      headerName: 'Status',
+      field: 'employmentStatus',
+      width: 168,
+      valueFormatter: (p) => formatEmploymentStatus(p.value),
     },
   ]
 }

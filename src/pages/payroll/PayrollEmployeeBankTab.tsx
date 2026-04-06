@@ -26,6 +26,9 @@ function summaryToEmployee(row: EmployeePayrollBankSummary): Employee {
     managerId: null,
     managerName: null,
     joinedAt: null,
+    employmentStatus: 'JOINED',
+    lastWorkingDate: null,
+    exitReason: null,
   }
 }
 

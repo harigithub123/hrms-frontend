@@ -265,7 +265,6 @@ export const employeesApi = {
   get: (id: number) => apiFetch<Employee>(`/employees/${id}`).then(handleOk),
   create: (body: EmployeeRequest) => apiFetch<Employee>('/employees', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
   update: (id: number, body: EmployeeRequest) => apiFetch<Employee>(`/employees/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
-  delete: (id: number) => apiFetch<void>(`/employees/${id}`, { method: 'DELETE' }).then(handleOk),
 }
 
 export const usersApi = {

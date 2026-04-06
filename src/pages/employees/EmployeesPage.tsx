@@ -82,6 +82,14 @@ export default function EmployeesPage() {
         const error = validateField(rule.name, values[rule.name])
         if (error) nextErrors[rule.name] = error
       }
+      if (values.employmentStatus !== 'JOINED') {
+        if (!values.lastWorkingDate.trim()) {
+          nextErrors.lastWorkingDate = 'Last working date is required when status is not Joined'
+        }
+        if (!values.exitReason.trim()) {
+          nextErrors.exitReason = 'Reason is required when status is not Joined'
+        }
+      }
       return nextErrors
     },
     [validateField],
@@ -137,6 +145,9 @@ export default function EmployeesPage() {
       designationId: row.designationId != null ? String(row.designationId) : '',
       managerId: row.managerId != null ? String(row.managerId) : '',
       joinedAt: row.joinedAt ? row.joinedAt.slice(0, 10) : '',
+      employmentStatus: row.employmentStatus,
+      lastWorkingDate: row.lastWorkingDate ? row.lastWorkingDate.slice(0, 10) : '',
+      exitReason: row.exitReason ?? '',
     })
     setFormErrors({})
     setSubmitError('')
@@ -162,6 +173,9 @@ export default function EmployeesPage() {
       designationId: parseId(formValues.designationId),
       managerId: parseId(formValues.managerId),
       joinedAt: formValues.joinedAt || undefined,
+      employmentStatus: formValues.employmentStatus,
+      lastWorkingDate: formValues.lastWorkingDate || undefined,
+      exitReason: formValues.exitReason.trim() === '' ? null : formValues.exitReason.trim(),
     }
 
     try {
@@ -176,24 +190,11 @@ export default function EmployeesPage() {
     }
   }
 
-  const handleDelete = useCallback(async (id: number) => {
-    if (!window.confirm('Delete this employee?')) return
-    try {
-      await employeesApi.delete(id)
-      setRefreshToken((value) => value + 1)
-      const allEmp = await employeesApi.listAll()
-      setAllEmployees(allEmp)
-    } catch {
-      // ignore
-    }
-  }, [])
-
   const actionConfig: DataGridActionConfig<Employee> = useMemo(
     () => ({
       onEdit: openEdit,
-      onDelete: (row) => handleDelete(row.id),
     }),
-    [handleDelete, openEdit],
+    [openEdit],
   )
 
   const columnDefs = useMemo(() => getEmployeeColumnDefs(), [])
