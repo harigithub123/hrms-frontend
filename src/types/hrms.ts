@@ -320,10 +320,12 @@ export interface OnboardingCase {
   departmentName: string | null
   designationId: number | null
   designationName: string | null
-  managerId: number | null
-  managerName: string | null
   employeeId: number | null
   employeeEmploymentStatus: EmploymentStatus | null
+  /** ISO date yyyy-MM-dd from linked employee */
+  employeeLastWorkingDate: string | null
+  /** false until on/after last working date; null when no employee on case */
+  exitDocumentTasksEligible: boolean | null
   offerId: number | null
   assignedHrUserId: number | null
   notes: string | null

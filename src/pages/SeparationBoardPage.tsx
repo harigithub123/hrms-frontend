@@ -167,10 +167,6 @@ export default function SeparationBoardPage() {
     [openEmployee],
   )
 
-  const bumpRefresh = useCallback(() => {
-    void load()
-  }, [load])
-
   const syncCases = async () => {
     setSyncing(true)
     setError('')
@@ -297,7 +293,6 @@ export default function SeparationBoardPage() {
         onSaveName={saveTaskName}
         onAddTask={addTask}
         onComplete={noOpComplete}
-        onReload={bumpRefresh}
         showCompleteCaseAction={false}
       />
     </PageLayout>

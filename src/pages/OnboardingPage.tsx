@@ -20,11 +20,11 @@ import {
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { departmentsApi, designationsApi, employeesApi, onboardingApi, offersApi } from '../api/client'
+import { isExitDocumentTaskBlockedByLwd, isExitDocumentTaskName } from '../utils/exitDocumentTasks'
 import type { JobOffer, OnboardingCase, OnboardingTask, OnboardingTaskStatus } from '../types/hrms'
 import type { Department, Designation, Employee } from '../types/org'
 import { formatEmploymentStatus } from '../types/org'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
-import { PayrollBankDetailsForm } from '../components/payroll/PayrollBankDetailsForm'
 import { CommonInputForm, DataGrid } from '../components/shared'
 import type { GenericFormFieldConfig, GridQueryParams, GridQueryResult } from '../components/shared'
 
@@ -43,7 +43,6 @@ type OnboardingCreateFormValues = {
   joinDate: string
   departmentId: string
   designationId: string
-  managerId: string
   offerId: string
 }
 
@@ -54,7 +53,6 @@ const EMPTY_ONBOARDING_FORM: OnboardingCreateFormValues = {
   joinDate: '',
   departmentId: '',
   designationId: '',
-  managerId: '',
   offerId: '',
 }
 
@@ -129,11 +127,6 @@ function getOnboardingColumnDefs(menuParams: OnboardingMenuParams): ColDef<Onboa
       valueFormatter: (p) => (p.value ? String(p.value) : '—'),
     },
     {
-      headerName: 'Manager',
-      field: 'managerName',
-      valueFormatter: (p) => (p.value ? String(p.value) : '—'),
-    },
-    {
       headerName: 'Tasks',
       colId: 'taskProgress',
       filter: false,
@@ -175,7 +168,6 @@ export default function OnboardingPage() {
   const [offers, setOffers] = useState<JobOffer[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [designations, setDesignations] = useState<Designation[]>([])
-  const [employees, setEmployees] = useState<Employee[]>([])
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [error, setError] = useState('')
   const [refreshToken, setRefreshToken] = useState(0)
@@ -198,14 +190,12 @@ export default function OnboardingPage() {
       offersApi.listOffers(),
       departmentsApi.listAll(),
       designationsApi.listAll(),
-      employeesApi.listAll(),
     ])
-      .then(([caseList, offerList, deptList, desigList, empList]) => {
+      .then(([caseList, offerList, deptList, desigList]) => {
         setCases(caseList)
         setOffers(offerList.filter((o) => o.status === 'ACCEPTED' || o.status === 'JOINED'))
         setDepartments(deptList)
         setDesignations(desigList)
-        setEmployees(empList)
         setError('')
         setRefreshToken((t) => t + 1)
       })
@@ -256,16 +246,6 @@ export default function OnboardingPage() {
         selectOptions: designations.map((d) => ({ value: String(d.id), label: d.name })),
       },
       {
-        name: 'managerId',
-        label: 'Manager',
-        type: 'select',
-        fullRow: true,
-        selectOptions: employees.map((e) => ({
-          value: String(e.id),
-          label: `${e.firstName} ${e.lastName}`,
-        })),
-      },
-      {
         name: 'offerId',
         label: 'Accepted / joined offer',
         type: 'select',
@@ -276,7 +256,7 @@ export default function OnboardingPage() {
         })),
       },
     ]
-  }, [departments, designations, employees, offers])
+  }, [departments, designations, offers])
 
   const validateField = useCallback((name: keyof OnboardingCreateFormValues, value: string): string => {
     const trimmed = value.trim()
@@ -336,7 +316,6 @@ export default function OnboardingPage() {
         joinDate: formValues.joinDate,
         departmentId: parseId(formValues.departmentId),
         designationId: parseId(formValues.designationId),
-        managerId: parseId(formValues.managerId),
         offerId: parseId(formValues.offerId),
       })
       closeCreate()
@@ -345,10 +324,6 @@ export default function OnboardingPage() {
       setSubmitError(toErrorMessage(e))
     }
   }
-
-  const bumpRefresh = useCallback(() => {
-    load()
-  }, [load])
 
   const toggleTask = async (caseId: number, taskId: number, done: boolean) => {
     try {
@@ -478,7 +453,6 @@ export default function OnboardingPage() {
         onSaveName={saveTaskName}
         onAddTask={addTask}
         onComplete={completeCase}
-        onReload={bumpRefresh}
       />
 
       <EmployeeDetailsFromCaseDialog
@@ -503,7 +477,6 @@ export function OnboardingCaseTasksDialog({
   onSaveName,
   onAddTask,
   onComplete,
-  onReload,
   showCompleteCaseAction = true,
 }: {
   open: boolean
@@ -517,13 +490,16 @@ export function OnboardingCaseTasksDialog({
   onSaveName: (c: OnboardingCase, t: OnboardingTask, draft: string) => void
   onAddTask: (caseId: number) => void
   onComplete: (caseId: number) => void
-  onReload: () => void
   /** When false, hides “Complete (create employee)” (e.g. separation / exit letter board). */
   showCompleteCaseAction?: boolean
 }) {
   if (!c) return null
   const tasksReadOnly =
     c.status === 'CANCELLED' || (c.status === 'COMPLETED' && c.employeeId == null)
+  const showLwdExitNotice =
+    c.employeeId != null &&
+    c.tasks.some((t) => isExitDocumentTaskName(t.name)) &&
+    c.exitDocumentTasksEligible === false
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
@@ -537,6 +513,17 @@ export function OnboardingCaseTasksDialog({
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
+          {showLwdExitNotice && (
+            <Alert severity="info">
+              Relieving, experience, and full &amp; final letter tasks can be marked complete on or after the
+              employee&apos;s last working date
+              {c.employeeLastWorkingDate != null
+                ? ` (${c.employeeLastWorkingDate.slice(0, 10)}).`
+                : ' (set last working date on the employee record if missing).'}{' '}
+              If letters are ready before that calendar day, set or backdate last working date on the employee so it
+              is today or earlier; then you can mark these tasks complete.
+            </Alert>
+          )}
           <AppTypography variant="subtitle2" fontWeight={700}>
             Tasks
           </AppTypography>
@@ -566,8 +553,6 @@ export function OnboardingCaseTasksDialog({
               </AppButton>
             </Stack>
           )}
-
-          <BankDetailsSection c={c} onSaved={onReload} />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
@@ -700,12 +685,20 @@ function TaskRow({
   const [nameDraft, setNameDraft] = useState(t.name)
   const [commentDraft, setCommentDraft] = useState(t.comment ?? '')
 
+  const lwdBlocksComplete = isExitDocumentTaskBlockedByLwd(c, t)
+  const doneCheckboxDisabled = disabled || (lwdBlocksComplete && !t.done)
+
   return (
     <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
       <Stack spacing={1}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }} flexWrap="wrap" useFlexGap>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Checkbox size="small" checked={t.done} disabled={disabled} onChange={(e) => onToggle(c.id, t.id, e.target.checked)} />
+            <Checkbox
+              size="small"
+              checked={t.done}
+              disabled={doneCheckboxDisabled}
+              onChange={(e) => onToggle(c.id, t.id, e.target.checked)}
+            />
             <span style={{ fontSize: 14 }}>Done</span>
           </label>
           <AppTextField
@@ -726,7 +719,11 @@ function TaskRow({
               onChange={(e) => onStatus(c.id, t.id, e.target.value as OnboardingTaskStatus)}
             >
               {TASK_STATUSES.map((s) => (
-                <MenuItem key={s} value={s}>
+                <MenuItem
+                  key={s}
+                  value={s}
+                  disabled={s === 'DONE' && lwdBlocksComplete}
+                >
                   {s.replace(/_/g, ' ')}
                 </MenuItem>
               ))}
@@ -760,28 +757,5 @@ function TaskRow({
         )}
       </Stack>
     </Paper>
-  )
-}
-
-function BankDetailsSection({ c, onSaved }: { c: OnboardingCase; onSaved: () => void }) {
-  const bankDisabled = c.status === 'CANCELLED'
-  return (
-    <PayrollBankDetailsForm
-      bankDetails={c.bankDetails}
-      disabled={bankDisabled}
-      onSave={async (body) => {
-        await onboardingApi.saveBankDetails(c.id, {
-          accountHolderName: body.accountHolderName,
-          bankName: body.bankName,
-          branch: body.branch,
-          accountNumber: body.accountNumber,
-          ifscCode: body.ifscCode,
-          accountType: body.accountType,
-          notes: body.notes,
-          effectiveFrom: body.effectiveFrom,
-        })
-        onSaved()
-      }}
-    />
   )
 }

@@ -541,7 +541,6 @@ export const onboardingApi = {
     joinDate: string
     departmentId?: number | null
     designationId?: number | null
-    managerId?: number | null
     offerId?: number | null
     assignedHrUserId?: number | null
     notes?: string | null
@@ -558,7 +557,12 @@ export const onboardingApi = {
   updateTask: (
     caseId: number,
     taskId: number,
-    body: { done?: boolean | null; status?: string | null; comment?: string | null; name?: string | null },
+    body: {
+      done?: boolean | null
+      status?: string | null
+      comment?: string | null
+      name?: string | null
+    },
   ) =>
     apiFetch<OnboardingTask>(`/onboarding/${caseId}/tasks/${taskId}`, {
       method: 'PATCH',
