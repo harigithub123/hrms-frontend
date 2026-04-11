@@ -743,23 +743,40 @@ function TaskRow({
 }) {
   const [nameDraft, setNameDraft] = useState(t.name)
   const [commentDraft, setCommentDraft] = useState(t.comment ?? '')
+  const [doneDraft, setDoneDraft] = useState(t.done)
+
+  useEffect(() => {
+    setDoneDraft(t.done)
+  }, [t.id, t.done])
 
   const lwdBlocksComplete = isExitDocumentTaskBlockedByLwd(c, t)
   const doneCheckboxDisabled = disabled || (lwdBlocksComplete && !t.done)
+  const doneDirty = doneDraft !== t.done
+
+  const applyDoneChange = () => {
+    onToggle(c.id, t.id, doneDraft)
+  }
 
   return (
     <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
       <Stack spacing={1}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }} flexWrap="wrap" useFlexGap>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Checkbox
-              size="small"
-              checked={t.done}
-              disabled={doneCheckboxDisabled}
-              onChange={(e) => onToggle(c.id, t.id, e.target.checked)}
-            />
-            <span style={{ fontSize: 14 }}>Done</span>
-          </label>
+          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Checkbox
+                size="small"
+                checked={doneDraft}
+                disabled={doneCheckboxDisabled}
+                onChange={(e) => setDoneDraft(e.target.checked)}
+              />
+              <span style={{ fontSize: 14 }}>Done</span>
+            </label>
+            {doneDirty && !disabled && (
+              <AppButton size="small" variant="contained" onClick={applyDoneChange}>
+                Save
+              </AppButton>
+            )}
+          </Stack>
           <AppTextField
             size="small"
             label="Name"

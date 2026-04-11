@@ -463,12 +463,6 @@ export default function OffersPage() {
           {error}
         </Alert>
       )}
-      <Alert severity="info" sx={{ mb: 2 }}>
-        HR-driven offers: candidates do not sign in here. Use <strong>Release</strong> to email the PDF, then record{' '}
-        <strong>Accept</strong> or <strong>Reject</strong> when you have the candidate&apos;s decision.{' '}
-        <strong>Mark joined</strong> records the real start date and opens or updates the{' '}
-        <Link to="/hr/onboarding">onboarding case</Link> (the employee record is created when onboarding is completed).
-      </Alert>
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
           <FormControl size="small" sx={{ minWidth: 160 }}>
