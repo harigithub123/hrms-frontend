@@ -58,6 +58,8 @@ export function getFormFieldsGridSx(fieldsPerRow: number): SxProps<Theme> {
 type CommonInputFormProps<TValues extends Record<string, string>> = {
   open: boolean
   title: string
+  /** Shown after submit error and before the field grid (e.g. workflow hints). */
+  intro?: ReactNode
   fields: Array<GenericFormFieldConfig<TValues>>
   values: TValues
   errors: Partial<Record<keyof TValues & string, string>>
@@ -81,6 +83,7 @@ type CommonInputFormProps<TValues extends Record<string, string>> = {
 export function CommonInputForm<TValues extends Record<string, string>>({
   open,
   title,
+  intro,
   fields,
   values,
   errors,
@@ -223,6 +226,7 @@ export function CommonInputForm<TValues extends Record<string, string>>({
             {submitError}
           </AppTypography>
         )}
+        {intro ? <Box sx={{ mb: 2 }}>{intro}</Box> : null}
         <Box sx={getFormFieldsGridSx(cols)}>
           {fields.map((field) => (
             <Box

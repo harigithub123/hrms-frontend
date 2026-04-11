@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Alert,
   Box,
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Paper,
@@ -52,6 +59,12 @@ export default function OffersPage() {
   const [formValues, setFormValues] = useState<OfferFormValues>(EMPTY_OFFER_FORM)
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof OfferFormValues, string>>>({})
   const [submitError, setSubmitError] = useState('')
+
+  const [joinOffer, setJoinOffer] = useState<JobOffer | null>(null)
+  const [joinActualDate, setJoinActualDate] = useState('')
+  const [joinConfirmAccepted, setJoinConfirmAccepted] = useState(false)
+  const [joinDialogError, setJoinDialogError] = useState('')
+  const [joinSubmitting, setJoinSubmitting] = useState(false)
 
   const deriveFrequencyForComponentCode = useCallback(
     (code?: string | null): OfferLineFrequency => {
@@ -357,25 +370,44 @@ export default function OffersPage() {
     }
   }
 
-  const join = async (row: JobOffer) => {
-    const actual = window.prompt(
-      'Actual joining date (YYYY-MM-DD)',
-      (row.joiningDate ?? new Date().toISOString().slice(0, 10)) as string,
-    )
-    if (!actual) return
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(actual)) {
-      setError('Invalid date format. Use YYYY-MM-DD.')
+  const openJoinDialog = useCallback((row: JobOffer) => {
+    setJoinOffer(row)
+    setJoinActualDate((row.joiningDate ?? new Date().toISOString().slice(0, 10)) as string)
+    setJoinConfirmAccepted(false)
+    setJoinDialogError('')
+  }, [])
+
+  const closeJoinDialog = useCallback(() => {
+    setJoinOffer(null)
+    setJoinDialogError('')
+  }, [])
+
+  const submitJoin = async () => {
+    if (!joinOffer) return
+    setJoinDialogError('')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(joinActualDate.trim())) {
+      setJoinDialogError('Use actual joining date in YYYY-MM-DD format.')
       return
     }
-    if (!window.confirm('Mark joined and create employee + salary structure from offer compensation?')) return
+    if (!joinConfirmAccepted) {
+      setJoinDialogError('Confirm that the candidate has accepted the offer before marking joined.')
+      return
+    }
+    setJoinSubmitting(true)
     try {
-      await offersApi.action(row.id, {
+      await offersApi.action(joinOffer.id, {
         action: 'JOIN',
-        join: { actualJoiningDate: actual, confirmCandidateAcceptedOffer: true },
+        join: {
+          actualJoiningDate: joinActualDate.trim(),
+          confirmCandidateAcceptedOffer: true,
+        },
       })
+      closeJoinDialog()
       setRefreshToken((t) => t + 1)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setJoinDialogError(e instanceof Error ? e.message : 'Failed')
+    } finally {
+      setJoinSubmitting(false)
     }
   }
 
@@ -387,7 +419,7 @@ export default function OffersPage() {
         onDownloadPdf: (r) => downloadPdf(r.id),
         onAccept: accept,
         onReject: reject,
-        onJoin: join,
+        onJoin: openJoinDialog,
       })
       // Override label rendering (keep underlying keys for action enablement).
       return baseCols.map((col) => {
@@ -406,7 +438,7 @@ export default function OffersPage() {
         return col
       })
     },
-    [accept],
+    [accept, openJoinDialog],
   )
 
   if (loading) return <LoadingSpinner />
@@ -431,6 +463,12 @@ export default function OffersPage() {
           {error}
         </Alert>
       )}
+      <Alert severity="info" sx={{ mb: 2 }}>
+        HR-driven offers: candidates do not sign in here. Use <strong>Release</strong> to email the PDF, then record{' '}
+        <strong>Accept</strong> or <strong>Reject</strong> when you have the candidate&apos;s decision.{' '}
+        <strong>Mark joined</strong> records the real start date and opens or updates the{' '}
+        <Link to="/hr/onboarding">onboarding case</Link> (the employee record is created when onboarding is completed).
+      </Alert>
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
           <FormControl size="small" sx={{ minWidth: 160 }}>
@@ -625,6 +663,60 @@ export default function OffersPage() {
           </Box>
         }
       />
+
+      <Dialog
+        open={joinOffer != null}
+        onClose={() => {
+          if (!joinSubmitting) closeJoinDialog()
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Mark joined</DialogTitle>
+        <DialogContent>
+          {joinOffer && (
+            <AppTypography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {joinOffer.candidateName} — offer #{joinOffer.id}
+            </AppTypography>
+          )}
+          {joinDialogError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {joinDialogError}
+            </Alert>
+          )}
+          <Stack spacing={2} sx={{ pt: 0.5 }}>
+            <AppTextField
+              label="Actual joining date"
+              type="date"
+              value={joinActualDate}
+              onChange={(e) => setJoinActualDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={joinConfirmAccepted}
+                  onChange={(e) => setJoinConfirmAccepted(e.target.checked)}
+                />
+              }
+              label="I confirm the candidate has accepted this offer (required to record a join in the system)."
+            />
+            <AppTypography variant="body2" color="text.secondary">
+              This updates the offer to Joined and prepares onboarding tasks. Payroll compensation is copied from the
+              offer when you complete onboarding, not at this step.
+            </AppTypography>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <AppButton onClick={() => !joinSubmitting && closeJoinDialog()} disabled={joinSubmitting}>
+            Cancel
+          </AppButton>
+          <AppButton variant="contained" onClick={() => void submitJoin()} disabled={joinSubmitting}>
+            Mark joined
+          </AppButton>
+        </DialogActions>
+      </Dialog>
     </PageLayout>
   )
 }

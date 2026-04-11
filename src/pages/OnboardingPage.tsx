@@ -25,6 +25,7 @@ import type { JobOffer, OnboardingCase, OnboardingTask, OnboardingTaskStatus } f
 import type { Department, Designation, Employee } from '../types/org'
 import { formatEmploymentStatus } from '../types/org'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
+import { PayrollBankDetailsForm, type PayrollBankFormPayload } from '../components/payroll/PayrollBankDetailsForm'
 import { CommonInputForm, DataGrid } from '../components/shared'
 import type { GenericFormFieldConfig, GridQueryParams, GridQueryResult } from '../components/shared'
 
@@ -125,6 +126,12 @@ function getOnboardingColumnDefs(menuParams: OnboardingMenuParams): ColDef<Onboa
       headerName: 'Designation',
       field: 'designationName',
       valueFormatter: (p) => (p.value ? String(p.value) : '—'),
+    },
+    {
+      headerName: 'Offer #',
+      field: 'offerId',
+      maxWidth: 100,
+      valueFormatter: (p) => (p.value != null ? String(p.value) : '—'),
     },
     {
       headerName: 'Tasks',
@@ -378,6 +385,23 @@ export default function OnboardingPage() {
     }
   }
 
+  const saveCaseBankDetails = useCallback(
+    async (caseId: number, payload: PayrollBankFormPayload) => {
+      await onboardingApi.saveBankDetails(caseId, {
+        accountHolderName: payload.accountHolderName,
+        bankName: payload.bankName,
+        branch: payload.branch,
+        accountNumber: payload.accountNumber,
+        ifscCode: payload.ifscCode,
+        accountType: payload.accountType,
+        notes: payload.notes,
+        effectiveFrom: payload.effectiveFrom || null,
+      })
+      await load()
+    },
+    [load],
+  )
+
   const completeCase = async (id: number) => {
     if (!window.confirm('Create employee record, allocate leave balances for join year, and mark completed?')) return
     try {
@@ -412,6 +436,13 @@ export default function OnboardingPage() {
         </Alert>
       )}
 
+      <Alert severity="info" sx={{ mb: 2 }}>
+        HR-driven onboarding: work the checklist and bank details here; there is no candidate login. For hires from an
+        offer, use <Link to="/hr/offers">Offers</Link> → <strong>Mark joined</strong> first so the case is created with
+        the right link and tasks. Use <strong>New onboarding case</strong> only for exceptions (e.g. no offer in the
+        system).
+      </Alert>
+
       <DataGrid<OnboardingCase>
         columnDefs={columnDefs}
         fetchRows={fetchOnboardingRows}
@@ -426,6 +457,12 @@ export default function OnboardingPage() {
       <CommonInputForm<OnboardingCreateFormValues>
         open={createOpen}
         title="New onboarding case"
+        intro={
+          <Alert severity="info" variant="outlined">
+            Prefer <Link to="/hr/offers">Offers → Mark joined</Link> for standard hires so the case ties to the offer.
+            Use this form when you must start onboarding without that path.
+          </Alert>
+        }
         fields={createFormFields}
         values={formValues}
         errors={formErrors}
@@ -453,6 +490,7 @@ export default function OnboardingPage() {
         onSaveName={saveTaskName}
         onAddTask={addTask}
         onComplete={completeCase}
+        onSaveBankDetails={saveCaseBankDetails}
       />
 
       <EmployeeDetailsFromCaseDialog
@@ -477,6 +515,7 @@ export function OnboardingCaseTasksDialog({
   onSaveName,
   onAddTask,
   onComplete,
+  onSaveBankDetails,
   showCompleteCaseAction = true,
 }: {
   open: boolean
@@ -490,6 +529,8 @@ export function OnboardingCaseTasksDialog({
   onSaveName: (c: OnboardingCase, t: OnboardingTask, draft: string) => void
   onAddTask: (caseId: number) => void
   onComplete: (caseId: number) => void
+  /** When set, HR can capture payroll bank details on the case (hire onboarding). */
+  onSaveBankDetails?: (caseId: number, payload: PayrollBankFormPayload) => Promise<void>
   /** When false, hides “Complete (create employee)” (e.g. separation / exit letter board). */
   showCompleteCaseAction?: boolean
 }) {
@@ -506,6 +547,17 @@ export function OnboardingCaseTasksDialog({
       <DialogTitle>
         {c.candidateFirstName} {c.candidateLastName}
         <AppTypography variant="body2" color="text.secondary" component="span" display="block" sx={{ mt: 0.5 }}>
+          Case #{c.id}
+          {c.offerId != null ? (
+            <>
+              {' '}
+              · Offer{' '}
+              <Link to="/hr/offers" style={{ color: 'inherit' }}>
+                #{c.offerId}
+              </Link>
+            </>
+          ) : null}
+          {' · '}
           {c.status} · Join {c.joinDate}
           {c.employeeId != null ? ` · Employee #${c.employeeId}` : ''}
           {c.employeeEmploymentStatus != null ? ` · ${formatEmploymentStatus(c.employeeEmploymentStatus)}` : ''}
@@ -552,6 +604,13 @@ export function OnboardingCaseTasksDialog({
                 Add task
               </AppButton>
             </Stack>
+          )}
+          {onSaveBankDetails && !tasksReadOnly && (
+            <PayrollBankDetailsForm
+              bankDetails={c.bankDetails}
+              disabled={false}
+              onSave={(payload) => onSaveBankDetails(c.id, payload)}
+            />
           )}
         </Stack>
       </DialogContent>
