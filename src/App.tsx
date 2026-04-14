@@ -24,7 +24,6 @@ import CompensationPage from './pages/compensation/CompensationPage'
 import HrHolidaysPage from './pages/hr-holidays/HrHolidaysPage'
 import LeaveTypesPage from './pages/leave-types/LeaveTypesPage'
 import SalaryComponentsPage from './pages/salary-components/SalaryComponentsPage'
-import PayrollFixedComponentsPage from './pages/payroll/PayrollFixedComponentsPage'
 import AdvancesPage from './pages/advances/AdvancesPage'
 import AppShell from './components/layout/AppShell'
 import './App.css'
@@ -72,7 +71,6 @@ function App() {
             <Route path="/hr/holidays" element={<HrHolidaysPage />} />
             <Route path="/hr/leave-types" element={<LeaveTypesPage />} />
             <Route path="/hr/salary-components" element={<SalaryComponentsPage />} />
-            <Route path="/hr/payroll-fixed-components" element={<PayrollFixedComponentsPage />} />
             <Route path="/advances" element={<AdvancesPage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>

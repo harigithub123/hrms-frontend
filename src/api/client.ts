@@ -29,10 +29,10 @@ import type {
   PayrollBankAudit,
   OnboardingTask,
   PayRun,
-  PayrollFixedComponentSetting,
   Payslip,
   SalaryAdvance,
   SalaryComponent,
+  SalaryComponentAdmin,
   SalaryComponentKind,
   SalaryStructure,
   UserSummary,
@@ -397,6 +397,7 @@ export const attendanceApi = {
 export const payrollApi = {
   components: () => apiFetch<SalaryComponent[]>('/payroll/components').then(handleOk),
   componentsAll: () => apiFetch<SalaryComponent[]>('/payroll/components/all').then(handleOk),
+  componentsAllWithFixed: () => apiFetch<SalaryComponentAdmin[]>('/payroll/components/all-with-fixed').then(handleOk),
   createComponent: (body: {
     code: string
     name: string
@@ -409,15 +410,13 @@ export const payrollApi = {
     id: number,
     body: { code: string; name: string; kind: SalaryComponentKind; sortOrder: number; active: boolean }
   ) => apiFetch<SalaryComponent>(`/payroll/components/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
-  listFixedComponents: () =>
-    apiFetch<PayrollFixedComponentSetting[]>('/payroll/fixed-components').then(handleOk),
-  upsertFixedComponent: (componentId: number, monthlyAmount: number) =>
-    apiFetch<PayrollFixedComponentSetting>(`/payroll/fixed-components/${componentId}`, {
+  setFixedMonthlyAmount: (componentId: number, monthlyAmount: number) =>
+    apiFetch<void>(`/payroll/components/${componentId}/fixed-monthly-amount`, {
       method: 'PUT',
       body: JSON.stringify({ monthlyAmount }),
     }).then(handleOk),
-  removeFixedComponent: (componentId: number) =>
-    apiFetch<void>(`/payroll/fixed-components/${componentId}`, { method: 'DELETE' }).then(handleOk),
+  clearFixedMonthlyAmount: (componentId: number) =>
+    apiFetch<void>(`/payroll/components/${componentId}/fixed-monthly-amount`, { method: 'DELETE' }).then(handleOk),
   saveStructure: (body: {
     employeeId: number
     effectiveFrom: string

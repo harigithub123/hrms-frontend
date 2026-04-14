@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Box } from '@mui/material'
 import { payrollApi } from '../../api/client'
-import type { SalaryComponent, SalaryComponentKind } from '../../types/hrms'
+import type { SalaryComponentAdmin, SalaryComponentKind } from '../../types/hrms'
 import { AppButton, PageLayout } from '../../components/ui'
 import { CommonInputForm, DataGrid } from '../../components/shared'
 import type { DataGridActionConfig, GridQueryParams, GridQueryResult } from '../../components/shared'
@@ -26,7 +26,7 @@ function validateSortOrder(value: string): string {
 export default function SalaryComponentsPage() {
   const [refreshToken, setRefreshToken] = useState(0)
   const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<SalaryComponent | null>(null)
+  const [editing, setEditing] = useState<SalaryComponentAdmin | null>(null)
   const [formValues, setFormValues] = useState<SalaryComponentFormValues>(EMPTY_SALARY_COMPONENT_FORM)
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof SalaryComponentFormValues, string>>>({})
   const [submitError, setSubmitError] = useState('')
@@ -53,8 +53,8 @@ export default function SalaryComponentsPage() {
     [validateField],
   )
 
-  const fetchRows = useCallback(async ({ page, pageSize }: GridQueryParams): Promise<GridQueryResult<SalaryComponent>> => {
-    const all = await payrollApi.componentsAll()
+  const fetchRows = useCallback(async ({ page, pageSize }: GridQueryParams): Promise<GridQueryResult<SalaryComponentAdmin>> => {
+    const all = await payrollApi.componentsAllWithFixed()
     const sorted = [...all].sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code))
     const start = page * pageSize
     return {
@@ -86,7 +86,7 @@ export default function SalaryComponentsPage() {
     setOpen(true)
   }
 
-  const openEdit = useCallback((row: SalaryComponent) => {
+  const openEdit = useCallback((row: SalaryComponentAdmin) => {
     setEditing(row)
     setFormValues({
       code: row.code,
@@ -101,6 +101,42 @@ export default function SalaryComponentsPage() {
   }, [])
 
   const close = () => setOpen(false)
+
+  const refresh = () => setRefreshToken((value) => value + 1)
+
+  const setFixedAmount = useCallback(async (row: SalaryComponentAdmin) => {
+    const current = row.fixedMonthlyAmount != null ? String(row.fixedMonthlyAmount) : ''
+    const raw = window.prompt(`Set fixed monthly amount for ${row.code} — ${row.name}`, current)
+    if (raw == null) return
+    const trimmed = raw.trim()
+    if (!trimmed) {
+      setSubmitError('Amount is required (or use clear)')
+      return
+    }
+    const n = Number(trimmed)
+    if (Number.isNaN(n) || n < 0) {
+      setSubmitError('Enter a valid non-negative amount')
+      return
+    }
+    try {
+      await payrollApi.setFixedMonthlyAmount(row.id, n)
+      refresh()
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Failed')
+    }
+  }, [])
+
+  const clearFixedAmount = useCallback(async (row: SalaryComponentAdmin) => {
+    const has = row.fixedMonthlyAmount != null && String(row.fixedMonthlyAmount).trim() !== ''
+    if (!has) return
+    if (!window.confirm(`Clear fixed monthly amount for ${row.code} — ${row.name}?`)) return
+    try {
+      await payrollApi.clearFixedMonthlyAmount(row.id)
+      refresh()
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Failed')
+    }
+  }, [])
 
   const handleSubmit = async () => {
     setSubmitError('')
@@ -120,18 +156,25 @@ export default function SalaryComponentsPage() {
       if (editing) await payrollApi.updateComponent(editing.id, body)
       else await payrollApi.createComponent(body)
       close()
-      setRefreshToken((value) => value + 1)
+      refresh()
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed')
     }
   }
 
-  const actionConfig: DataGridActionConfig<SalaryComponent> = useMemo(
+  const actionConfig: DataGridActionConfig<SalaryComponentAdmin> = useMemo(
     () => ({ onEdit: openEdit }),
     [openEdit],
   )
 
-  const columnDefs = useMemo(() => getSalaryComponentColumnDefs(), [])
+  const columnDefs = useMemo(
+    () =>
+      getSalaryComponentColumnDefs({
+        onSetFixed: setFixedAmount,
+        onClearFixed: clearFixedAmount,
+      }),
+    [setFixedAmount, clearFixedAmount],
+  )
 
   return (
     <PageLayout
@@ -148,7 +191,7 @@ export default function SalaryComponentsPage() {
         </Box>
       }
     >
-      <DataGrid<SalaryComponent>
+      <DataGrid<SalaryComponentAdmin>
         columnDefs={columnDefs}
         fetchRows={fetchRows}
         getRowId={(row) => String(row.id)}

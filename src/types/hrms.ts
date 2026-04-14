@@ -130,14 +130,9 @@ export interface SalaryComponent {
   active: boolean
 }
 
-/** Org-wide fixed monthly amount applied to every payslip if not already on employee compensation. */
-export interface PayrollFixedComponentSetting {
-  id: number
-  componentId: number
-  componentCode: string
-  componentName: string
-  kind: SalaryComponentKind
-  monthlyAmount: string | number
+/** Admin/master-data view: salary component + optional org-wide fixed monthly amount. */
+export interface SalaryComponentAdmin extends SalaryComponent {
+  fixedMonthlyAmount: string | number | null
 }
 
 export interface SalaryStructureLine {
