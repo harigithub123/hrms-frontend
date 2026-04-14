@@ -3,13 +3,11 @@ import type { GenericFormFieldConfig } from '../../components/shared'
 export type CompensationFormValues = {
   employeeId: string
   effectiveFrom: string
-  annualCtc: string
 }
 
 export const EMPTY_COMPENSATION_FORM: CompensationFormValues = {
   employeeId: '',
   effectiveFrom: '',
-  annualCtc: '',
 }
 
 export const COMPENSATION_FORM_RULES: Array<{
@@ -34,6 +32,5 @@ export function getCompensationFormFields(opts: {
       fullRow: true,
     },
     { name: 'effectiveFrom', label: 'Effective from', type: 'date', required: true },
-    { name: 'annualCtc', label: 'Annual CTC', type: 'number', min: 0, step: 1 },
   ]
 }

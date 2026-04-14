@@ -54,7 +54,7 @@ function baseAdvanceDataColumns(): ColDef<SalaryAdvance>[] {
       valueGetter: (p) => {
         const row = p.data
         if (!row) return ''
-        return `${fmt(row.amount)} ${row.currency}`
+        return `INR ${fmt(row.amount)}`
       },
     },
     {

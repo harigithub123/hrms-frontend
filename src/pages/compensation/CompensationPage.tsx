@@ -56,7 +56,7 @@ export default function CompensationPage() {
     Promise.all([employeesApi.listAll(), payrollApi.componentsAll()])
       .then(([e, c]) => {
         setEmployees(e)
-        setComponents(c.filter((x) => x.active && x.kind === 'EARNING'))
+        setComponents(c.filter((x) => x.active))
         setError('')
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed'))
@@ -77,6 +77,28 @@ export default function CompensationPage() {
   }, [empId, employees])
 
   const addLine = () => setLines((l) => [...l, { componentId: 0, amount: '' }])
+
+  const derivedAnnualCtc = useMemo(() => {
+    let total = 0
+    let hasAny = false
+    for (const ln of lines) {
+      if (ln.componentId <= 0) continue
+      const trimmed = ln.amount.trim()
+      if (!trimmed) continue
+      const amount = Number(trimmed)
+      if (!Number.isFinite(amount)) continue
+
+      const comp = components.find((c) => c.id === ln.componentId)
+      if (!comp || comp.kind !== 'EARNING') continue
+
+      hasAny = true
+      total += amount * 12
+    }
+    if (!hasAny) return ''
+    // Match backend rounding behaviour (scale=2, HALF_UP).
+    const rounded = Math.round(total * 100) / 100
+    return String(rounded)
+  }, [lines, components])
 
   const validateField = useCallback((name: keyof CompensationFormValues, value: string): string => {
     const rule = COMPENSATION_FORM_RULES.find((r) => r.name === name)
@@ -154,7 +176,7 @@ export default function CompensationPage() {
 
     const parsed = lines
       .filter((l) => l.componentId > 0 && l.amount !== '')
-      .map((l) => ({ componentId: l.componentId, amount: Number(l.amount), frequency: 'MONTHLY' as const, payableOn: null }))
+      .map((l) => ({ componentId: l.componentId, amount: Number(l.amount), frequency: 'MONTHLY' as const }))
     if (parsed.length === 0) {
       setSubmitError('Add at least one compensation line with component and amount.')
       return
@@ -164,7 +186,7 @@ export default function CompensationPage() {
       await compensationApi.create({
         employeeId,
         effectiveFrom: formValues.effectiveFrom,
-        annualCtc: formValues.annualCtc.trim() ? Number(formValues.annualCtc) : undefined,
+        annualCtc: derivedAnnualCtc.trim() ? Number(derivedAnnualCtc) : undefined,
         lines: parsed,
       })
       closeCreate()
@@ -301,6 +323,11 @@ export default function CompensationPage() {
         submitLabel="Create"
         extraContent={
           <Box sx={{ mt: 1 }}>
+            <Box sx={{ mb: 1 }}>
+              <AppTypography variant="body2" color="text.secondary">
+                Annual CTC (earnings only): <b>{derivedAnnualCtc || '—'}</b>
+              </AppTypography>
+            </Box>
             <AppTypography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
               Compensation lines
             </AppTypography>
@@ -355,7 +382,6 @@ export default function CompensationPage() {
               <TableRow>
                 <TableCell>Component</TableCell>
                 <TableCell>Frequency</TableCell>
-                <TableCell>Payable on</TableCell>
                 <TableCell align="right">Amount</TableCell>
               </TableRow>
             </TableHead>
@@ -366,13 +392,12 @@ export default function CompensationPage() {
                     {l.componentName}
                   </TableCell>
                   <TableCell>{l.frequency}</TableCell>
-                  <TableCell>{l.payableOn ?? '—'}</TableCell>
                   <TableCell align="right">{l.amount}</TableCell>
                 </TableRow>
               ))}
               {(selected?.lines ?? []).length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4}>
+                  <TableCell colSpan={3}>
                     <AppTypography variant="body2" color="text.secondary" sx={{ py: 1.5 }}>
                       No lines.
                     </AppTypography>

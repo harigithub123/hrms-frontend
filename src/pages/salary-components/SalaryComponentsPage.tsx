@@ -55,7 +55,7 @@ export default function SalaryComponentsPage() {
 
   const fetchRows = useCallback(async ({ page, pageSize }: GridQueryParams): Promise<GridQueryResult<SalaryComponentAdmin>> => {
     const all = await payrollApi.componentsAllWithFixed()
-    const sorted = [...all].sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code))
+    const sorted = [...all].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
     const start = page * pageSize
     return {
       rows: sorted.slice(start, start + pageSize),
@@ -89,7 +89,6 @@ export default function SalaryComponentsPage() {
   const openEdit = useCallback((row: SalaryComponentAdmin) => {
     setEditing(row)
     setFormValues({
-      code: row.code,
       name: row.name,
       kind: row.kind,
       sortOrder: String(row.sortOrder),
@@ -104,40 +103,6 @@ export default function SalaryComponentsPage() {
 
   const refresh = () => setRefreshToken((value) => value + 1)
 
-  const setFixedAmount = useCallback(async (row: SalaryComponentAdmin) => {
-    const current = row.fixedMonthlyAmount != null ? String(row.fixedMonthlyAmount) : ''
-    const raw = window.prompt(`Set fixed monthly amount for ${row.code} — ${row.name}`, current)
-    if (raw == null) return
-    const trimmed = raw.trim()
-    if (!trimmed) {
-      setSubmitError('Amount is required (or use clear)')
-      return
-    }
-    const n = Number(trimmed)
-    if (Number.isNaN(n) || n < 0) {
-      setSubmitError('Enter a valid non-negative amount')
-      return
-    }
-    try {
-      await payrollApi.setFixedMonthlyAmount(row.id, n)
-      refresh()
-    } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed')
-    }
-  }, [])
-
-  const clearFixedAmount = useCallback(async (row: SalaryComponentAdmin) => {
-    const has = row.fixedMonthlyAmount != null && String(row.fixedMonthlyAmount).trim() !== ''
-    if (!has) return
-    if (!window.confirm(`Clear fixed monthly amount for ${row.code} — ${row.name}?`)) return
-    try {
-      await payrollApi.clearFixedMonthlyAmount(row.id)
-      refresh()
-    } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed')
-    }
-  }, [])
-
   const handleSubmit = async () => {
     setSubmitError('')
     const errors = validateForm(formValues)
@@ -145,7 +110,6 @@ export default function SalaryComponentsPage() {
     if (Object.values(errors).some(Boolean)) return
 
     const body = {
-      code: formValues.code.trim(),
       name: formValues.name.trim(),
       kind: formValues.kind as SalaryComponentKind,
       sortOrder: parseInt(formValues.sortOrder.trim(), 10),
@@ -167,14 +131,7 @@ export default function SalaryComponentsPage() {
     [openEdit],
   )
 
-  const columnDefs = useMemo(
-    () =>
-      getSalaryComponentColumnDefs({
-        onSetFixed: setFixedAmount,
-        onClearFixed: clearFixedAmount,
-      }),
-    [setFixedAmount, clearFixedAmount],
-  )
+  const columnDefs = useMemo(() => getSalaryComponentColumnDefs(), [])
 
   return (
     <PageLayout

@@ -11,7 +11,6 @@ const KIND_OPTIONS = [
 ]
 
 export type SalaryComponentFormValues = {
-  code: string
   name: string
   kind: string
   sortOrder: string
@@ -19,7 +18,6 @@ export type SalaryComponentFormValues = {
 }
 
 export const SALARY_COMPONENT_FORM_CONFIG: Array<GenericFormFieldConfig<SalaryComponentFormValues>> = [
-  { name: 'code', label: 'Code', required: true, maxLength: 50 },
   { name: 'name', label: 'Name', required: true, maxLength: 150 },
   { name: 'kind', label: 'Kind', required: true, type: 'select', selectOptions: KIND_OPTIONS },
   {
@@ -34,7 +32,6 @@ export const SALARY_COMPONENT_FORM_CONFIG: Array<GenericFormFieldConfig<SalaryCo
 ]
 
 export const EMPTY_SALARY_COMPONENT_FORM: SalaryComponentFormValues = {
-  code: '',
   name: '',
   kind: 'EARNING',
   sortOrder: '0',

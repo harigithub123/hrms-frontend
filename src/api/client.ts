@@ -399,7 +399,6 @@ export const payrollApi = {
   componentsAll: () => apiFetch<SalaryComponent[]>('/payroll/components/all').then(handleOk),
   componentsAllWithFixed: () => apiFetch<SalaryComponentAdmin[]>('/payroll/components/all-with-fixed').then(handleOk),
   createComponent: (body: {
-    code: string
     name: string
     kind: SalaryComponentKind
     sortOrder: number
@@ -408,7 +407,7 @@ export const payrollApi = {
     apiFetch<SalaryComponent>('/payroll/components', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
   updateComponent: (
     id: number,
-    body: { code: string; name: string; kind: SalaryComponentKind; sortOrder: number; active: boolean }
+    body: { name: string; kind: SalaryComponentKind; sortOrder: number; active: boolean }
   ) => apiFetch<SalaryComponent>(`/payroll/components/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
   setFixedMonthlyAmount: (componentId: number, monthlyAmount: number) =>
     apiFetch<void>(`/payroll/components/${componentId}/fixed-monthly-amount`, {
@@ -420,7 +419,8 @@ export const payrollApi = {
   saveStructure: (body: {
     employeeId: number
     effectiveFrom: string
-    currency?: string | null
+    effectiveTo?: string | null
+    isActive?: boolean
     note?: string | null
     lines: { componentId: number; amount: number }[]
   }) =>
@@ -456,10 +456,9 @@ export const compensationApi = {
     employeeId: number
     effectiveFrom: string
     effectiveTo?: string | null
-    currency?: string | null
     annualCtc?: number | null
     notes?: string | null
-    lines: { componentId: number; amount: number; frequency: 'MONTHLY' | 'YEARLY' | 'ONE_TIME'; payableOn?: string | null }[]
+    lines: { componentId: number; amount: number; frequency: 'MONTHLY' | 'YEARLY' | 'ONE_TIME' }[]
   }) => apiFetch<EmployeeCompensation>('/compensation', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
 }
 
@@ -507,7 +506,6 @@ export const offersApi = {
     offerReleaseDate?: string | null
     probationPeriodMonths?: number | null
     annualCtc?: number | null
-    currency?: string | null
     compensationLines?: {
       componentId: number
       amount: number
@@ -638,7 +636,6 @@ export const advancesApi = {
   create: (body: {
     employeeId?: number | null
     amount: number
-    currency?: string | null
     reason?: string | null
     recoveryMonths: number
   }) => apiFetch<SalaryAdvance>('/advances', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),

@@ -11,7 +11,6 @@ export type OfferFormValues = {
   offerReleaseDate: string
   probationPeriodMonths: string
   annualCtc: string
-  currency: string
 }
 
 export type OfferLineFrequency = 'MONTHLY' | 'YEARLY' | 'ONE_TIME'
@@ -32,7 +31,6 @@ export const EMPTY_OFFER_FORM: OfferFormValues = {
   joinDate: '',
   offerReleaseDate: '',
   probationPeriodMonths: '',
-  currency: 'INR',
   annualCtc: '',
 }
 
@@ -67,7 +65,6 @@ export function getOfferFormFields(opts: {
     { name: 'joinDate', label: 'Joining date', type: 'date' },
     { name: 'offerReleaseDate', label: 'Offer release date', type: 'date' },
     { name: 'probationPeriodMonths', label: 'Probation period (months)', type: 'number', min: 0, max: 48, step: 1 },
-    { name: 'currency', label: 'Currency', maxLength: 10},
   ]
 }
 

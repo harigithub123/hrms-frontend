@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   Alert,
   Box,
@@ -66,10 +65,15 @@ export default function OffersPage() {
   const [joinDialogError, setJoinDialogError] = useState('')
   const [joinSubmitting, setJoinSubmitting] = useState(false)
 
-  const deriveFrequencyForComponentCode = useCallback(
-    (code?: string | null): OfferLineFrequency => {
-      if (code === 'ANNUAL_BONUS') return 'YEARLY'
-      if (code === 'JOINING_BONUS') return 'ONE_TIME'
+  const deriveFrequencyForComponentName = useCallback(
+    (name?: string | null): OfferLineFrequency => {
+      const derived = (name ?? '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+      if (derived === 'ANNUAL_BONUS') return 'YEARLY'
+      if (derived === 'JOINING_BONUS') return 'ONE_TIME'
       return 'MONTHLY'
     },
     [],
@@ -330,7 +334,6 @@ export default function OffersPage() {
         offerReleaseDate: formValues.offerReleaseDate || null,
         probationPeriodMonths: formValues.probationPeriodMonths ? Number(formValues.probationPeriodMonths) : null,
         annualCtc: annualCtcFromLines ? Number(annualCtcFromLines) : null,
-        currency: formValues.currency.trim() || null,
         compensationLines: parsedLines.length ? parsedLines : undefined,
       })
       close()
@@ -594,7 +597,7 @@ export default function OffersPage() {
           <Box sx={{ mt: 2 }}>
             <Box sx={{ mb: 1 }}>
               <AppTypography variant="body2" color="text.secondary">
-                Annual CTC : <b>{formValues.currency.trim() || 'INR'} {annualCtcFromLines || '—'}</b>
+                Annual CTC : <b>INR {annualCtcFromLines || '—'}</b>
               </AppTypography>
             </Box>
             <AppTypography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
@@ -611,7 +614,7 @@ export default function OffersPage() {
                       onChange={(e) => {
                         const v = Number(e.target.value)
                         const comp = components.find((c) => c.id === v)
-                        const nextFrequency = deriveFrequencyForComponentCode(comp?.code)
+                        const nextFrequency = deriveFrequencyForComponentName(comp?.name)
                         setLines((prev) =>
                           prev.map((x, j) =>
                             j === i ? { ...x, componentId: v, frequency: nextFrequency } : x,

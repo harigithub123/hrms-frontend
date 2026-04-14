@@ -123,7 +123,6 @@ export type SalaryComponentKind = 'EARNING' | 'DEDUCTION'
 
 export interface SalaryComponent {
   id: number
-  code: string
   name: string
   kind: SalaryComponentKind
   sortOrder: number
@@ -147,7 +146,8 @@ export interface SalaryStructure {
   id: number
   employeeId: number
   effectiveFrom: string
-  currency: string
+  effectiveTo: string | null
+  isActive: boolean
   note: string | null
   lines: SalaryStructureLine[]
 }
@@ -201,7 +201,6 @@ export interface CompensationLine {
   componentName: string
   amount: string | number
   frequency: 'MONTHLY' | 'YEARLY' | 'ONE_TIME'
-  payableOn: string | null
 }
 
 export interface EmployeeCompensation {
@@ -211,7 +210,6 @@ export interface EmployeeCompensation {
   employeeName?: string | null
   effectiveFrom: string
   effectiveTo: string | null
-  currency: string
   annualCtc: string | number | null
   annualBonus?: string | number | null
   joiningBonus?: string | number | null
@@ -240,7 +238,6 @@ export interface JobOffer {
   offerReleaseDate: string | null
   probationPeriodMonths: number | null
   annualCtc: string | number | null
-  currency: string
   bodyHtml: string | null
   pdfGeneratedAt: string | null
   employeeId: number | null
@@ -346,7 +343,6 @@ export interface SalaryAdvance {
   employeeId: number
   employeeName: string
   amount: string | number
-  currency: string
   reason: string | null
   status: AdvanceStatus
   requestedAt: string
