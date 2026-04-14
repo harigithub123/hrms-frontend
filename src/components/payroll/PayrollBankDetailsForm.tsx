@@ -17,7 +17,7 @@ export type PayrollBankFormPayload = {
 
 type PayrollBankDetailsFormProps = {
   bankDetails: OnboardingBankDetails | null
-  /** When true, fields and save are disabled (e.g. cancelled onboarding case). */
+  /** When true, fields and save are disabled (e.g. cancelled case, or bank details already saved). */
   disabled?: boolean
   onSave: (body: PayrollBankFormPayload) => Promise<void>
   showHeading?: boolean
@@ -89,9 +89,16 @@ export function PayrollBankDetailsForm({
   return (
     <Box sx={{ pt: showHeading ? 1 : 0 }}>
       {showHeading && (
-        <AppTypography variant="subtitle2" fontWeight={700} gutterBottom>
-          Bank account (payroll)
-        </AppTypography>
+        <>
+          <AppTypography variant="subtitle2" fontWeight={700} gutterBottom>
+            Bank account (payroll)
+          </AppTypography>
+          {disabled && bankDetails != null && (
+            <AppTypography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              Bank details are saved and cannot be changed.
+            </AppTypography>
+          )}
+        </>
       )}
       <Stack spacing={1.5}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>

@@ -4,7 +4,7 @@ import { Alert, Box, IconButton, Menu, MenuItem } from '@mui/material'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { onboardingApi, separationBoardApi } from '../api/client'
-import type { OnboardingCase, OnboardingTask, OnboardingTaskStatus } from '../types/hrms'
+import type { OnboardingCase, OnboardingTask } from '../types/hrms'
 import { formatEmploymentStatus } from '../types/org'
 import { AppButton, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
 import { DataGrid } from '../components/shared'
@@ -158,7 +158,7 @@ export default function SeparationBoardPage() {
     [cases],
   )
 
-  const openEmployee = useCallback((_c: OnboardingCase) => {
+  const openEmployee = useCallback(() => {
     window.location.assign('/employees')
   }, [])
 
@@ -184,15 +184,6 @@ export default function SeparationBoardPage() {
   const toggleTask = async (caseId: number, taskId: number, done: boolean) => {
     try {
       await onboardingApi.toggleTask(caseId, taskId, done)
-      await load()
-    } catch (e) {
-      setError(toErrorMessage(e))
-    }
-  }
-
-  const setTaskStatus = async (caseId: number, taskId: number, status: OnboardingTaskStatus) => {
-    try {
-      await onboardingApi.updateTask(caseId, taskId, { status })
       await load()
     } catch (e) {
       setError(toErrorMessage(e))
@@ -234,7 +225,7 @@ export default function SeparationBoardPage() {
     }
   }
 
-  const noOpComplete = async (_id: number) => {}
+  const noOpComplete = async () => {}
 
   if (!initialLoadDone) return <LoadingSpinner />
 
@@ -288,7 +279,6 @@ export default function SeparationBoardPage() {
         }
         onClose={() => setTasksCaseId(null)}
         onToggleTask={toggleTask}
-        onSetTaskStatus={setTaskStatus}
         onSaveComment={saveTaskComment}
         onSaveName={saveTaskName}
         onAddTask={addTask}

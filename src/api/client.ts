@@ -29,6 +29,7 @@ import type {
   PayrollBankAudit,
   OnboardingTask,
   PayRun,
+  PayrollFixedComponentSetting,
   Payslip,
   SalaryAdvance,
   SalaryComponent,
@@ -408,6 +409,15 @@ export const payrollApi = {
     id: number,
     body: { code: string; name: string; kind: SalaryComponentKind; sortOrder: number; active: boolean }
   ) => apiFetch<SalaryComponent>(`/payroll/components/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then(handleOk),
+  listFixedComponents: () =>
+    apiFetch<PayrollFixedComponentSetting[]>('/payroll/fixed-components').then(handleOk),
+  upsertFixedComponent: (componentId: number, monthlyAmount: number) =>
+    apiFetch<PayrollFixedComponentSetting>(`/payroll/fixed-components/${componentId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ monthlyAmount }),
+    }).then(handleOk),
+  removeFixedComponent: (componentId: number) =>
+    apiFetch<void>(`/payroll/fixed-components/${componentId}`, { method: 'DELETE' }).then(handleOk),
   saveStructure: (body: {
     employeeId: number
     effectiveFrom: string

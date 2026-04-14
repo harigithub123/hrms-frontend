@@ -8,20 +8,17 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   IconButton,
-  InputLabel,
   Menu,
   MenuItem,
   Paper,
-  Select,
   Stack,
 } from '@mui/material'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { departmentsApi, designationsApi, employeesApi, onboardingApi, offersApi } from '../api/client'
 import { isExitDocumentTaskBlockedByLwd, isExitDocumentTaskName } from '../utils/exitDocumentTasks'
-import type { JobOffer, OnboardingCase, OnboardingTask, OnboardingTaskStatus } from '../types/hrms'
+import type { JobOffer, OnboardingCase, OnboardingTask } from '../types/hrms'
 import type { Department, Designation, Employee } from '../types/org'
 import { formatEmploymentStatus } from '../types/org'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
@@ -29,9 +26,13 @@ import { PayrollBankDetailsForm, type PayrollBankFormPayload } from '../componen
 import { CommonInputForm, DataGrid } from '../components/shared'
 import type { GenericFormFieldConfig, GridQueryParams, GridQueryResult } from '../components/shared'
 
-const TASK_STATUSES: OnboardingTaskStatus[] = ['PENDING', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'CANCELLED']
-
 const PAGE_SIZE_OPTIONS = [10, 15, 20, 50]
+
+/** Non-pending / non-done values from older data; shown read-only (completion is via Done + Save). */
+function legacyStoredTaskStatusLabel(status: OnboardingTask['status']): string | null {
+  if (status === 'PENDING' || status === 'DONE') return null
+  return status.replace(/_/g, ' ')
+}
 
 function toErrorMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'Failed'
@@ -341,15 +342,6 @@ export default function OnboardingPage() {
     }
   }
 
-  const setTaskStatus = async (caseId: number, taskId: number, status: OnboardingTaskStatus) => {
-    try {
-      await onboardingApi.updateTask(caseId, taskId, { status })
-      load()
-    } catch (e) {
-      setError(toErrorMessage(e))
-    }
-  }
-
   const saveTaskComment = async (c: OnboardingCase, t: OnboardingTask, draft: string) => {
     const next = draft.trim() === '' ? '' : draft
     const prev = t.comment ?? ''
@@ -485,7 +477,6 @@ export default function OnboardingPage() {
         }
         onClose={() => setTasksCaseId(null)}
         onToggleTask={toggleTask}
-        onSetTaskStatus={setTaskStatus}
         onSaveComment={saveTaskComment}
         onSaveName={saveTaskName}
         onAddTask={addTask}
@@ -510,7 +501,6 @@ export function OnboardingCaseTasksDialog({
   onNewTaskNameChange,
   onClose,
   onToggleTask,
-  onSetTaskStatus,
   onSaveComment,
   onSaveName,
   onAddTask,
@@ -524,7 +514,6 @@ export function OnboardingCaseTasksDialog({
   onNewTaskNameChange: (v: string) => void
   onClose: () => void
   onToggleTask: (caseId: number, taskId: number, done: boolean) => void
-  onSetTaskStatus: (caseId: number, taskId: number, status: OnboardingTaskStatus) => void
   onSaveComment: (c: OnboardingCase, t: OnboardingTask, draft: string) => void
   onSaveName: (c: OnboardingCase, t: OnboardingTask, draft: string) => void
   onAddTask: (caseId: number) => void
@@ -586,7 +575,6 @@ export function OnboardingCaseTasksDialog({
               t={t}
               disabled={tasksReadOnly}
               onToggle={onToggleTask}
-              onStatus={onSetTaskStatus}
               onSaveComment={onSaveComment}
               onSaveName={onSaveName}
             />
@@ -608,7 +596,7 @@ export function OnboardingCaseTasksDialog({
           {onSaveBankDetails && !tasksReadOnly && (
             <PayrollBankDetailsForm
               bankDetails={c.bankDetails}
-              disabled={false}
+              disabled={c.bankDetails != null}
               onSave={(payload) => onSaveBankDetails(c.id, payload)}
             />
           )}
@@ -616,7 +604,7 @@ export function OnboardingCaseTasksDialog({
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
         <AppButton onClick={onClose}>Close</AppButton>
-        {showCompleteCaseAction && !tasksReadOnly && (
+        {showCompleteCaseAction && !tasksReadOnly && c.employeeId == null && (
           <AppButton variant="contained" color="success" onClick={() => onComplete(c.id)}>
             Complete (create employee)
           </AppButton>
@@ -729,7 +717,6 @@ function TaskRow({
   t,
   disabled,
   onToggle,
-  onStatus,
   onSaveComment,
   onSaveName,
 }: {
@@ -737,7 +724,6 @@ function TaskRow({
   t: OnboardingTask
   disabled: boolean
   onToggle: (caseId: number, taskId: number, done: boolean) => void
-  onStatus: (caseId: number, taskId: number, status: OnboardingTaskStatus) => void
   onSaveComment: (c: OnboardingCase, t: OnboardingTask, draft: string) => void
   onSaveName: (c: OnboardingCase, t: OnboardingTask, draft: string) => void
 }) {
@@ -745,22 +731,37 @@ function TaskRow({
   const [commentDraft, setCommentDraft] = useState(t.comment ?? '')
   const [doneDraft, setDoneDraft] = useState(t.done)
 
+  // Sync local checkbox when task reloads from server (e.g. after Save).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync after refetch
     setDoneDraft(t.done)
   }, [t.id, t.done])
 
   const lwdBlocksComplete = isExitDocumentTaskBlockedByLwd(c, t)
-  const doneCheckboxDisabled = disabled || (lwdBlocksComplete && !t.done)
+  // After a task is saved as done, it cannot be unchecked (local draft before Save still editable).
+  const doneCheckboxDisabled = disabled || t.done || (lwdBlocksComplete && !t.done)
   const doneDirty = doneDraft !== t.done
 
   const applyDoneChange = () => {
     onToggle(c.id, t.id, doneDraft)
   }
 
+  const legacyStatusLabel = legacyStoredTaskStatusLabel(t.status)
+
   return (
     <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1 }}>
       <Stack spacing={1}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }} flexWrap="wrap" useFlexGap>
+          
+          <AppTextField
+            size="small"
+            label="Name"
+            value={nameDraft}
+            disabled={disabled}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={() => onSaveName(c, t, nameDraft)}
+            sx={{ minWidth: 200, flex: 1 }}
+          />
           <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Checkbox
@@ -777,35 +778,12 @@ function TaskRow({
               </AppButton>
             )}
           </Stack>
-          <AppTextField
-            size="small"
-            label="Name"
-            value={nameDraft}
-            disabled={disabled}
-            onChange={(e) => setNameDraft(e.target.value)}
-            onBlur={() => onSaveName(c, t, nameDraft)}
-            sx={{ minWidth: 200, flex: 1 }}
-          />
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              label="Status"
-              value={t.status}
-              disabled={disabled}
-              onChange={(e) => onStatus(c.id, t.id, e.target.value as OnboardingTaskStatus)}
-            >
-              {TASK_STATUSES.map((s) => (
-                <MenuItem
-                  key={s}
-                  value={s}
-                  disabled={s === 'DONE' && lwdBlocksComplete}
-                >
-                  {s.replace(/_/g, ' ')}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
         </Stack>
+        {legacyStatusLabel && (
+          <AppTypography variant="caption" color="text.secondary" display="block">
+            Stored status (legacy): {legacyStatusLabel}
+          </AppTypography>
+        )}
         <AppTextField
           size="small"
           label="Comment"

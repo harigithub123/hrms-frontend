@@ -94,15 +94,18 @@ export default function OffersPage() {
 
       hasAnyLine = true
 
+      const comp = components.find((c) => c.id === ln.componentId)
+      const sign = comp?.kind === 'DEDUCTION' ? -1 : 1
+
       switch (ln.frequency) {
         case 'MONTHLY':
-          total += amount * 12
+          total += sign * amount * 12
           break
         case 'YEARLY':
-          total += amount
+          total += sign * amount
           break
         case 'ONE_TIME':
-          total += amount
+          total += sign * amount
           break
       }
     }
@@ -112,7 +115,7 @@ export default function OffersPage() {
     // Match backend rounding behaviour (scale=2, HALF_UP).
     const rounded = Math.round(total * 100) / 100
     return String(rounded)
-  }, [lines])
+  }, [lines, components])
 
   const statusDisplayName = (s: JobOfferStatus | string | null | undefined) => {
     if (!s) return '—'
@@ -172,7 +175,11 @@ export default function OffersPage() {
         setDepts(d)
         setDesigs(de)
         setEmps(e)
-        setComponents(comps.filter((x) => x.active && x.kind === 'EARNING'))
+        setComponents(
+          comps
+            .filter((x) => x.active)
+            .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+        )
         setError('')
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed'))
@@ -616,6 +623,7 @@ export default function OffersPage() {
                       {components.map((c) => (
                         <MenuItem key={c.id} value={c.id}>
                           {c.name}
+                          {c.kind === 'DEDUCTION' ? ' (deduction)' : ''}
                         </MenuItem>
                       ))}
                     </Select>
