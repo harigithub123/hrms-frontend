@@ -430,7 +430,7 @@ export const payrollApi = {
     return apiFetch<SalaryStructure>(`/payroll/structures/employee/${employeeId}${q}`).then(handleOk)
   },
   payRuns: () => apiFetch<PayRun[]>('/payroll/runs').then(handleOk),
-  createPayRun: (body: { periodStart: string; periodEnd: string }) =>
+  createPayRun: (body: { year: number; month: number }) =>
     apiFetch<PayRun>('/payroll/runs', { method: 'POST', body: JSON.stringify(body) }).then(handleOk),
   payslipsForRun: (runId: number) =>
     apiFetch<Payslip[]>(`/payroll/runs/${runId}/payslips`).then(handleOk),

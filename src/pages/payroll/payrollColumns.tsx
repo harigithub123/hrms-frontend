@@ -29,7 +29,12 @@ export function getPayRunColumnDefs(callbacks: PayRunColumnCallbacks): ColDef<Pa
       headerName: 'Period',
       minWidth: 220,
       valueGetter: (p) =>
-        p.data ? `${p.data.periodStart} → ${p.data.periodEnd}` : '',
+        p.data
+          ? new Date(p.data.year, p.data.month - 1, 1).toLocaleString(undefined, {
+              month: 'long',
+              year: 'numeric',
+            })
+          : '',
       sortable: false,
       filter: false,
     },

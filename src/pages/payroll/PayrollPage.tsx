@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Alert, Box, Tab, Tabs } from '@mui/material'
+import { Alert, Box, FormControl, InputLabel, MenuItem, Select, Tab, Tabs } from '@mui/material'
 import { payrollApi } from '../../api/client'
 import type { PayRun, Payslip } from '../../types/hrms'
-import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../../components/ui'
+import { AppButton, AppTypography, LoadingSpinner, PageLayout } from '../../components/ui'
 import { DataGrid } from '../../components/shared'
 import type { GridQueryParams, GridQueryResult } from '../../components/shared'
 import { getPayRunColumnDefs, getPayslipColumnDefs } from './payrollColumns'
@@ -18,12 +18,9 @@ export default function PayrollPage() {
 
   const [runs, setRuns] = useState<PayRun[]>([])
   const [runsRefresh, setRunsRefresh] = useState(0)
-  const [runStart, setRunStart] = useState(() => {
-    const d = new Date()
-    d.setDate(1)
-    return d.toISOString().slice(0, 10)
-  })
-  const [runEnd, setRunEnd] = useState(() => new Date().toISOString().slice(0, 10))
+  const now = useMemo(() => new Date(), [])
+  const [runYear, setRunYear] = useState(now.getFullYear())
+  const [runMonth, setRunMonth] = useState(now.getMonth() + 1)
   const [selectedRun, setSelectedRun] = useState<number | ''>('')
   const [payslips, setPayslips] = useState<Payslip[]>([])
 
@@ -50,7 +47,7 @@ export default function PayrollPage() {
 
   const createRun = async () => {
     try {
-      await payrollApi.createPayRun({ periodStart: runStart, periodEnd: runEnd })
+      await payrollApi.createPayRun({ year: runYear, month: runMonth })
       await loadRuns()
       setRunsRefresh((v) => v + 1)
     } catch (e) {
@@ -137,24 +134,32 @@ export default function PayrollPage() {
 
       {mainTab === 0 && (
         <>
-          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 1, mb: 2 }}>
-            <AppTextField
-              sx={{ width: 180 }}
-              label="Period start"
-              type="date"
-              value={runStart}
-              onChange={(e) => setRunStart(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-            <AppTextField
-              sx={{ width: 180 }}
-              label="Period end"
-              type="date"
-              value={runEnd}
-              onChange={(e) => setRunEnd(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-            <AppButton variant="contained" onClick={createRun} sx={{ width: 150 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Year</InputLabel>
+              <Select
+                label="Year"
+                value={runYear}
+                onChange={(e) => setRunYear(Number(e.target.value))}
+              >
+                {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i).map((y) => (
+                  <MenuItem key={y} value={y}>
+                    {y}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Month</InputLabel>
+              <Select label="Month" value={runMonth} onChange={(e) => setRunMonth(Number(e.target.value))}>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <MenuItem key={i + 1} value={i + 1}>
+                    {new Date(2000, i, 1).toLocaleString(undefined, { month: 'long' })}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <AppButton variant="contained" onClick={createRun} sx={{ minWidth: 150 }}>
               Generate pay run
             </AppButton>
           </Box>

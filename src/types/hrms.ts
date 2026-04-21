@@ -156,8 +156,8 @@ export type PayRunStatus = 'DRAFT' | 'FINALIZED'
 
 export interface PayRun {
   id: number
-  periodStart: string
-  periodEnd: string
+  year: number
+  month: number
   status: PayRunStatus
 }
 
