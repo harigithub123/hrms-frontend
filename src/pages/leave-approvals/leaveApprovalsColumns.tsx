@@ -1,7 +1,16 @@
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Box } from '@mui/material'
+import { Box, Chip } from '@mui/material'
 import type { LeaveRequest } from '../../types/hrms'
 import { AppButton } from '../../components/ui'
+
+function statusChip(status: LeaveRequest['status']) {
+  const map = {
+    PENDING: 'warning' as const,
+    APPROVED: 'success' as const,
+    REJECTED: 'error' as const,
+  }
+  return <Chip size="small" label={status} color={map[status]} variant="outlined" />
+}
 
 export function getLeaveApprovalsColumnDefs(
   onApprove: (id: number) => void,
@@ -20,6 +29,14 @@ export function getLeaveApprovalsColumnDefs(
     },
     { headerName: 'Days', field: 'totalDays', width: 90, maxWidth: 120 },
     {
+      headerName: 'Status',
+      field: 'status',
+      width: 120,
+      maxWidth: 140,
+      cellRenderer: (params: ICellRendererParams<LeaveRequest>) =>
+        params.data ? statusChip(params.data.status) : null,
+    },
+    {
       headerName: 'Actions',
       colId: '__leave_approval_actions__',
       sortable: false,
@@ -28,6 +45,9 @@ export function getLeaveApprovalsColumnDefs(
       maxWidth: 260,
       cellRenderer: (params: ICellRendererParams<LeaveRequest>) => {
         if (!params.data) return null
+        if (params.data.status !== 'PENDING') {
+          return <Box sx={{ color: 'text.secondary', fontSize: 13 }}>—</Box>
+        }
         return (
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', height: '100%' }}>
             <AppButton size="small" variant="contained" color="success" onClick={() => onApprove(params.data!.id)}>

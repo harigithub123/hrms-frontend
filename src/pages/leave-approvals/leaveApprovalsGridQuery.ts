@@ -7,6 +7,7 @@ const textColumns = {
   leaveTypeCode: (r: LeaveRequest) => r.leaveTypeCode,
   dateRange: (r: LeaveRequest) => `${r.startDate} ${r.endDate}`,
   totalDays: (r: LeaveRequest) => r.totalDays,
+  status: (r: LeaveRequest) => r.status,
 }
 
 const sortColumns = {
@@ -15,6 +16,7 @@ const sortColumns = {
   dateRange: (a: LeaveRequest, b: LeaveRequest, mul: number) => mul * a.startDate.localeCompare(b.startDate),
   totalDays: (a: LeaveRequest, b: LeaveRequest, mul: number) =>
     mul * (parseFloat(a.totalDays) - parseFloat(b.totalDays)),
+  status: (a: LeaveRequest, b: LeaveRequest, mul: number) => mul * a.status.localeCompare(b.status),
 }
 
 export function applyLeaveApprovalsGridQuery(

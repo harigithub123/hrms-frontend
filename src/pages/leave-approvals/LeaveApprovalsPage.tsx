@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box } from '@mui/material'
-import { leaveRequestsApi } from '../../api/client'
+import { leaveRequestsApi, meApi } from '../../api/client'
 import type { LeaveRequest } from '../../types/hrms'
+import type { Employee } from '../../types/org'
 import { AppTypography, PageLayout } from '../../components/ui'
 import { DataGrid, type GridQueryParams } from '../../components/shared'
 import { applyLeaveApprovalsGridQuery } from './leaveApprovalsGridQuery'
@@ -11,18 +12,28 @@ const PAGE_SIZE_OPTIONS = [10, 15, 20, 50]
 
 export default function LeaveApprovalsPage() {
   const [refreshToken, setRefreshToken] = useState(0)
+  const [reportees, setReportees] = useState<Employee[]>([])
   const [list, setList] = useState<LeaveRequest[]>([])
   const [listLoadError, setListLoadError] = useState('')
   const [feedbackMsg, setFeedbackMsg] = useState('')
+  const [listLoaded, setListLoaded] = useState(false)
+
+  const reporteeIds = useMemo(() => new Set(reportees.map((e) => e.id)), [reportees])
 
   const load = useCallback(async () => {
+    setListLoaded(false)
     try {
-      const r = await leaveRequestsApi.listPending()
-      setList(r)
+      const [team, all] = await Promise.all([meApi.directReports(), leaveRequestsApi.list()])
+      setReportees(Array.isArray(team) ? team : [])
+      const ids = new Set((Array.isArray(team) ? team : []).map((e) => e.id))
+      const filtered = (Array.isArray(all) ? all : []).filter((r) => ids.has(r.employeeId))
+      setList(filtered)
       setListLoadError('')
     } catch (e) {
       setListLoadError(e instanceof Error ? e.message : 'Failed to load')
       setList([])
+    } finally {
+      setListLoaded(true)
     }
   }, [])
 
@@ -62,6 +73,11 @@ export default function LeaveApprovalsPage() {
 
   return (
     <PageLayout maxWidth="none">
+      {listLoaded && reporteeIds.size === 0 && !listLoadError && (
+        <AppTypography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          You have no direct reports, so there are no team leave requests to show here.
+        </AppTypography>
+      )}
       {feedbackMsg && (
         <AppTypography
           variant="body2"

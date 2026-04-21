@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
   Chip,
-  Divider,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControl,
   InputLabel,
   MenuItem,
@@ -19,31 +21,27 @@ import {
   TableRow,
   Tabs,
 } from '@mui/material'
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
+  employeesApi,
   holidaysApi,
   leaveBalancesApi,
+  leaveReportsApi,
   leaveRequestsApi,
   leaveTypesApi,
-  meApi,
 } from '../api/client'
-import type {
-  Holiday,
-  LeaveBalance,
-  LeaveCalendarRange,
-  LeaveRequest,
-  LeaveType,
-} from '../types/hrms'
+import type { Holiday, LeaveBalance, LeaveLedgerAction, LeaveLedgerRow, LeaveRequest, LeaveType } from '../types/hrms'
 import type { Employee } from '../types/org'
 import { AppButton, AppTextField, AppTypography, LoadingSpinner, PageLayout } from '../components/ui'
 
-function monthBounds(year: number, month: number) {
-  const from = new Date(year, month - 1, 1)
-  const to = new Date(year, month, 0)
+function iso(d: Date) {
   const pad = (n: number) => String(n).padStart(2, '0')
-  const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  return { from: iso(from), to: iso(to) }
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function fmt(d: Date) {
+  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 function num(s: string) {
@@ -60,31 +58,43 @@ function statusChip(status: LeaveRequest['status']) {
   return <Chip size="small" label={status} color={map[status]} variant="outlined" />
 }
 
-function TabPanel({ children, value, index }: { children: ReactNode; value: number; index: number }) {
-  if (value !== index) return null
-  return <Box sx={{ pt: 2.5 }}>{children}</Box>
+function statusDot(status: LeaveRequest['status']) {
+  const color =
+    status === 'APPROVED' ? 'success.main' : status === 'PENDING' ? 'warning.main' : 'error.main'
+  return <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color, mx: 'auto' }} />
+}
+
+const LEDGER_ACTION_LABELS: Record<LeaveLedgerAction, string> = {
+  OPENING: 'Opening balance',
+  ALLOCATED: 'Allocated',
+  CARRY_FORWARD: 'Carry-forwarded',
+  LAPSE: 'Lapsed',
+  LEAVE_TAKEN: 'Leave taken',
+}
+
+function ledgerActionLabel(action: string): string {
+  return LEDGER_ACTION_LABELS[action as LeaveLedgerAction] ?? action
 }
 
 export default function LeavePage() {
   const { user, hasRole } = useAuth()
-  const location = useLocation()
-  const navigate = useNavigate()
-  const mainTab = location.pathname === '/leave/team' ? 1 : 0
   const now = useMemo(() => new Date(), [])
   const [year, setYear] = useState(now.getFullYear())
-  const [calYear, setCalYear] = useState(now.getFullYear())
-  const [calMonth, setCalMonth] = useState(now.getMonth() + 1)
-  const [teamFilterEmployeeId, setTeamFilterEmployeeId] = useState<number | ''>('')
+  const [tab, setTab] = useState(0)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [summaryPeriod, setSummaryPeriod] = useState<'THIS_FY' | 'LAST_FY' | 'THIS_YEAR' | 'LAST_YEAR' | 'CUSTOM'>(
+    'THIS_FY',
+  )
+  const [summaryFrom, setSummaryFrom] = useState('')
+  const [summaryTo, setSummaryTo] = useState('')
+  const [summaryItemFilter, setSummaryItemFilter] = useState<'ALL' | 'LEAVE' | 'HOLIDAY'>('ALL')
 
   const [types, setTypes] = useState<LeaveType[]>([])
   const [balances, setBalances] = useState<LeaveBalance[]>([])
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [holidays, setHolidays] = useState<Holiday[]>([])
-  const [ranges, setRanges] = useState<LeaveCalendarRange[]>([])
-  const [teamEmployees, setTeamEmployees] = useState<Employee[]>([])
 
   const [loading, setLoading] = useState(true)
-  const [calLoading, setCalLoading] = useState(false)
   const [error, setError] = useState('')
   const [submitError, setSubmitError] = useState('')
 
@@ -92,21 +102,30 @@ export default function LeavePage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [reason, setReason] = useState('')
+  const [requestTypeFilter, setRequestTypeFilter] = useState<number | ''>('')
+  const [requestStatusFilter, setRequestStatusFilter] = useState<'ALL' | LeaveRequest['status']>('ALL')
+  const [requestPeriod, setRequestPeriod] = useState<'THIS_YEAR' | 'LAST_YEAR' | 'CUSTOM' | 'ALL'>('THIS_YEAR')
+  const [requestPeriodFrom, setRequestPeriodFrom] = useState('')
+  const [requestPeriodTo, setRequestPeriodTo] = useState('')
+
+  const isHr = hasRole('HR') || hasRole('ADMIN')
+  const [ledgerEmployees, setLedgerEmployees] = useState<Employee[]>([])
+  const [ledgerEmployeeId, setLedgerEmployeeId] = useState<number | ''>('')
+  const [ledgerYear, setLedgerYear] = useState(new Date().getFullYear())
+  const [ledgerLeaveTypeId, setLedgerLeaveTypeId] = useState<number | ''>('')
+  const [ledgerLeaveTypes, setLedgerLeaveTypes] = useState<LeaveType[]>([])
+  const [ledgerRows, setLedgerRows] = useState<LeaveLedgerRow[]>([])
+  const [ledgerLoading, setLedgerLoading] = useState(false)
+  const [ledgerError, setLedgerError] = useState('')
 
   const empId = user?.employeeId ?? null
   const canApply = empId != null || hasRole('HR') || hasRole('ADMIN')
   const hrPick = (hasRole('HR') || hasRole('ADMIN')) && empId == null
-  const showBalances = empId != null
-  const hasReportees = (user?.directReportCount ?? 0) > 0
-  const showTeamLeave = hasRole('ADMIN') || hasRole('HR') || hasReportees
-
-  const { from, to } = monthBounds(calYear, calMonth)
-
   const loadCore = () => {
     setLoading(true)
     const reqs: Promise<unknown>[] = [
       leaveTypesApi.listActive(),
-      leaveRequestsApi.list(empId != null ? { employeeId: empId } : {}),
+      empId != null ? leaveRequestsApi.list({ employeeId: empId }) : Promise.resolve([] as LeaveRequest[]),
       holidaysApi.list(year),
     ]
     if (empId != null) {
@@ -136,37 +155,70 @@ export default function LeavePage() {
   }, [user?.employeeId, year])
 
   useEffect(() => {
-    if (!showTeamLeave) {
-      setTeamEmployees([])
-      return
-    }
-    meApi
-      .directReports()
-      .then(setTeamEmployees)
+    if (!isHr && user?.employeeId != null) setLedgerEmployeeId(user.employeeId)
+  }, [isHr, user?.employeeId])
+
+  useEffect(() => {
+    if (!isHr) return
+    if (tab !== 3) return
+    if (ledgerEmployees.length > 0) return
+    employeesApi
+      .listAll()
+      .then(setLedgerEmployees)
       .catch(() => {})
-  }, [showTeamLeave, user?.employeeId])
+  }, [isHr, tab, ledgerEmployees.length])
 
   useEffect(() => {
-    if (teamFilterEmployeeId === '') return
-    if (!teamEmployees.some((e) => e.id === teamFilterEmployeeId)) {
-      setTeamFilterEmployeeId('')
-    }
-  }, [teamEmployees, teamFilterEmployeeId])
-
-  useEffect(() => {
-    if (!showTeamLeave) {
-      setRanges([])
+    if (tab !== 3) return
+    if (ledgerEmployeeId === '') {
+      setLedgerLeaveTypes([])
       return
     }
-    setCalLoading(true)
-    leaveRequestsApi
-      .calendar(from, to, teamFilterEmployeeId === '' ? null : teamFilterEmployeeId)
-      .then((data) => {
-        setRanges(data)
+    let cancelled = false
+    leaveReportsApi
+      .ledgerFilterLeaveTypes(ledgerEmployeeId as number, ledgerYear)
+      .then((list) => {
+        if (cancelled) return
+        const next = Array.isArray(list) ? list : []
+        setLedgerLeaveTypes(next)
+        setLedgerLeaveTypeId((cur) => (cur === '' || next.some((t) => t.id === cur) ? cur : ''))
       })
-      .catch(() => setRanges([]))
-      .finally(() => setCalLoading(false))
-  }, [showTeamLeave, from, to, teamFilterEmployeeId])
+      .catch(() => {
+        if (cancelled) return
+        const fallback = isHr ? leaveTypesApi.listAll() : leaveTypesApi.listActive()
+        fallback
+          .then((fb) => {
+            if (cancelled) return
+            const merged = Array.isArray(fb) ? fb : []
+            setLedgerLeaveTypes(merged)
+            setLedgerLeaveTypeId((cur) => (cur === '' || merged.some((t) => t.id === cur) ? cur : ''))
+          })
+          .catch(() => {
+            if (!cancelled) setLedgerLeaveTypes([])
+          })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tab, ledgerEmployeeId, ledgerYear, isHr])
+
+  useEffect(() => {
+    if (tab !== 3) return
+    if (ledgerEmployeeId === '') {
+      setLedgerRows([])
+      return
+    }
+    setLedgerLoading(true)
+    setLedgerError('')
+    leaveReportsApi
+      .ledger(ledgerEmployeeId as number, ledgerYear, ledgerLeaveTypeId === '' ? null : ledgerLeaveTypeId)
+      .then((data) => {
+        setLedgerRows(Array.isArray(data) ? data : [])
+        setLedgerError('')
+      })
+      .catch((e) => setLedgerError(e instanceof Error ? e.message : 'Failed'))
+      .finally(() => setLedgerLoading(false))
+  }, [tab, ledgerEmployeeId, ledgerYear, ledgerLeaveTypeId])
 
   const handleApply = async () => {
     setSubmitError('')
@@ -194,25 +246,144 @@ export default function LeavePage() {
     return m
   }, [balances])
 
+  const filteredRequests = useMemo(() => {
+    const parseDate = (s: string | null | undefined) => {
+      if (!s) return null
+      const str = String(s)
+      const d = new Date(str.includes('T') ? str : `${str}T12:00:00`)
+      return Number.isFinite(d.getTime()) ? d : null
+    }
+
+    const startOfYear = (y: number) => new Date(y, 0, 1, 0, 0, 0, 0)
+    const endOfYear = (y: number) => new Date(y, 11, 31, 23, 59, 59, 999)
+    const now = new Date()
+    const thisYearStart = startOfYear(now.getFullYear())
+    const thisYearEnd = endOfYear(now.getFullYear())
+    const lastYearStart = startOfYear(now.getFullYear() - 1)
+    const lastYearEnd = endOfYear(now.getFullYear() - 1)
+
+    return requests.filter((r) => {
+      if (requestTypeFilter !== '' && r.leaveTypeId !== requestTypeFilter) return false
+      if (requestStatusFilter !== 'ALL' && r.status !== requestStatusFilter) return false
+      const d = parseDate(r.requestedAt) ?? parseDate(r.startDate)
+      if (requestPeriod === 'THIS_YEAR') {
+        if (d && (d < thisYearStart || d > thisYearEnd)) return false
+      } else if (requestPeriod === 'LAST_YEAR') {
+        if (d && (d < lastYearStart || d > lastYearEnd)) return false
+      } else if (requestPeriod === 'CUSTOM') {
+        const from = parseDate(requestPeriodFrom)
+        const to = parseDate(requestPeriodTo)
+        if (from && d && d < from) return false
+        if (to && d && d > to) return false
+      }
+      return true
+    })
+  }, [requests, requestTypeFilter, requestStatusFilter, requestPeriod, requestPeriodFrom, requestPeriodTo])
+
+  const bookedByType = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const r of requests) {
+      if (r.status !== 'PENDING') continue
+      const cur = m.get(r.leaveTypeId) ?? 0
+      m.set(r.leaveTypeId, cur + num(r.totalDays))
+    }
+    return m
+  }, [requests])
+
+  const summaryRange = useMemo(() => {
+    const d = new Date()
+    const startOfYear = (y: number) => new Date(y, 0, 1, 0, 0, 0, 0)
+    const endOfYear = (y: number) => new Date(y, 11, 31, 23, 59, 59, 999)
+    const parseDate = (s: string) => {
+      if (!s) return null
+      const dt = new Date(s.includes('T') ? s : `${s}T12:00:00`)
+      return Number.isFinite(dt.getTime()) ? dt : null
+    }
+
+    if (summaryPeriod === 'THIS_FY' || summaryPeriod === 'LAST_FY') {
+      const fyStartYear = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1 // Apr 1
+      const base = summaryPeriod === 'THIS_FY' ? fyStartYear : fyStartYear - 1
+      return { from: new Date(base, 3, 1), to: new Date(base + 1, 2, 31) }
+    }
+    if (summaryPeriod === 'THIS_YEAR') {
+      return { from: startOfYear(d.getFullYear()), to: endOfYear(d.getFullYear()) }
+    }
+    if (summaryPeriod === 'LAST_YEAR') {
+      return { from: startOfYear(d.getFullYear() - 1), to: endOfYear(d.getFullYear() - 1) }
+    }
+
+    // CUSTOM
+    const from = parseDate(summaryFrom) ?? new Date(d.getFullYear(), 0, 1)
+    const to = parseDate(summaryTo) ?? new Date(d.getFullYear(), 11, 31)
+    return { from, to }
+  }, [summaryPeriod, summaryFrom, summaryTo])
+
+  const leaveBookedThisYear = useMemo(() => {
+    const from = summaryRange.from.getTime()
+    const to = summaryRange.to.getTime()
+    return requests
+      .filter((r) => r.status === 'PENDING')
+      .filter((r) => {
+        const d = new Date(`${r.startDate}T12:00:00`).getTime()
+        return Number.isFinite(d) && d >= from && d <= to
+      })
+      .reduce((sum, r) => sum + num(r.totalDays), 0)
+  }, [requests, summaryRange])
+
+  type TimelineItem = { key: string; date: Date; label: string; kind: 'LEAVE' | 'HOLIDAY' }
+  const timeline = useMemo(() => {
+    const items: TimelineItem[] = []
+    for (const h of holidays) {
+      const d = new Date(`${String(h.holidayDate)}T12:00:00`)
+      if (!Number.isFinite(d.getTime())) continue
+      items.push({ key: `h-${h.id}`, date: d, label: h.name, kind: 'HOLIDAY' })
+    }
+    for (const r of requests) {
+      const d = new Date(`${r.startDate}T12:00:00`)
+      if (!Number.isFinite(d.getTime())) continue
+      items.push({ key: `r-${r.id}`, date: d, label: r.leaveTypeName, kind: 'LEAVE' })
+    }
+    items.sort((a, b) => a.date.getTime() - b.date.getTime())
+    return items
+  }, [holidays, requests])
+
+  const upcomingItems = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const from = summaryRange.from.getTime()
+    const to = summaryRange.to.getTime()
+    return timeline
+      .filter((i) => i.date.getTime() >= from && i.date.getTime() <= to)
+      .filter((i) => (summaryItemFilter === 'ALL' ? true : i.kind === summaryItemFilter))
+      .filter((i) => i.date.getTime() >= today.getTime())
+  }, [timeline, summaryRange, summaryItemFilter])
+
+  const pastItems = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const from = summaryRange.from.getTime()
+    const to = summaryRange.to.getTime()
+    return timeline
+      .filter((i) => i.date.getTime() >= from && i.date.getTime() <= to)
+      .filter((i) => (summaryItemFilter === 'ALL' ? true : i.kind === summaryItemFilter))
+      .filter((i) => i.date.getTime() < today.getTime())
+      .reverse()
+  }, [timeline, summaryRange, summaryItemFilter])
+
   if (loading) return <LoadingSpinner />
 
   return (
     <PageLayout
       maxWidth="none"
-      actions={
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {((hasRole('HR') || hasRole('ADMIN')) || empId != null) && (
-            <AppButton component={RouterLink} to="/leave/report" variant="outlined">
-              Leave ledger
-            </AppButton>
-          )}
-          {(hasRole('HR') || hasRole('ADMIN')) && (
-            <AppButton component={RouterLink} to="/leave/admin" variant="outlined">
-              Leave admin
-            </AppButton>
-          )}
-        </Box>
-      }
+      // actions={
+      //   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+      //     {(hasRole('HR') || hasRole('ADMIN')) && (
+      //       <AppButton component={RouterLink} to="/leave/admin" variant="outlined">
+      //         Leave admin
+      //       </AppButton>
+      //     )}
+      //   </Box>
+      // }
     >
       {!canApply && (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -227,8 +398,8 @@ export default function LeavePage() {
 
       <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Tabs
-          value={mainTab}
-          onChange={(_, v) => navigate(v === 0 ? '/leave' : '/leave/team')}
+          value={tab}
+          onChange={(_, v) => setTab(v)}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
@@ -238,381 +409,702 @@ export default function LeavePage() {
             '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minHeight: 48 },
           }}
         >
-          <Tab label="My leave details" id="leave-subtab-0" />
-          <Tab label="Team leave" id="leave-subtab-1" />
+          <Tab label="Leave Summary" />
+          <Tab label="Leave Balance" />
+          <Tab label="Leave Requests" />
+          <Tab label="Leave Ledger" />
+          <Tab label="Holidays" />
         </Tabs>
-        <Box sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
-          <TabPanel value={mainTab} index={0}>
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', lg: 'row' },
-                gap: 2.5,
-                alignItems: 'flex-start',
-              }}
-            >
-              <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
-                <Stack spacing={2.5}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <FormControl size="small" sx={{ minWidth: 120 }}>
-                      <InputLabel>Year</InputLabel>
-                      <Select label="Year" value={year} onChange={(e) => setYear(Number(e.target.value))}>
-                        {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i).map((y) => (
-                          <MenuItem key={y} value={y}>
-                            {y}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <AppTypography variant="body2" color="text.secondary">
-                      Leave balances and company holidays use the selected year.
-                    </AppTypography>
-                  </Box>
 
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                    <AppTypography variant="subtitle1" fontWeight={700} gutterBottom>
-                      Apply for leave
-                    </AppTypography>
-                    {submitError && (
-                      <AppTypography color="error" variant="body2" sx={{ mb: 1 }}>
-                        {submitError}
-                      </AppTypography>
-                    )}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-start' }}>
-                      <FormControl size="small" sx={{ minWidth: 200 }}>
-                        <InputLabel>Leave type</InputLabel>
-                        <Select
-                          label="Leave type"
-                          value={leaveTypeId}
-                          onChange={(e) => setLeaveTypeId(e.target.value === '' ? '' : Number(e.target.value))}
-                          disabled={!canApply}
-                        >
-                          {types.map((t) => (
-                            <MenuItem key={t.id} value={t.id}>
-                              {t.name} ({t.code})
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                      <AppTextField
-                        label="Start"
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        disabled={!canApply}
-                        InputLabelProps={{ shrink: true }}
-                        sx={{ width: 160 }}
-                      />
-                      <AppTextField
-                        label="End"
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        disabled={!canApply}
-                        InputLabelProps={{ shrink: true }}
-                        sx={{ width: 160 }}
-                      />
-                      <AppTextField
-                        label="Reason"
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        disabled={!canApply}
-                        sx={{ minWidth: 220, flex: 1 }}
-                      />
-                      <AppButton variant="contained" onClick={handleApply} disabled={!canApply}>
-                        Submit request
-                      </AppButton>
-                    </Box>
-                    {hrPick && (
-                      <AppTypography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                        As HR/Admin without an employee profile, create requests via API with <code>employeeId</code>, or
-                        use an employee login account.
-                      </AppTypography>
-                    )}
-                  </Paper>
-
-                  <Paper variant="outlined" sx={{ p: 0, borderRadius: 2, overflow: 'hidden' }}>
-                    <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
-                      <AppTypography variant="subtitle1" fontWeight={700}>
-                        My leave requests
-                      </AppTypography>
-                    </Box>
-                    <TableContainer>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Type</TableCell>
-                            <TableCell>From</TableCell>
-                            <TableCell>To</TableCell>
-                            <TableCell align="right">Days</TableCell>
-                            <TableCell>Status</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {requests.length === 0 && (
-                            <TableRow>
-                              <TableCell colSpan={5}>
-                                <AppTypography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                                  No requests yet.
-                                </AppTypography>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          {requests.map((r) => (
-                            <TableRow key={r.id} hover>
-                              <TableCell>{r.leaveTypeName}</TableCell>
-                              <TableCell>{r.startDate}</TableCell>
-                              <TableCell>{r.endDate}</TableCell>
-                              <TableCell align="right">{r.totalDays}</TableCell>
-                              <TableCell>{statusChip(r.status)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Paper>
-                </Stack>
-              </Box>
-
-              <Stack
-                spacing={2}
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
+          {tab === 0 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box
                 sx={{
-                  width: { xs: '100%', lg: 320 },
-                  flexShrink: 0,
-                  position: { lg: 'sticky' },
-                  top: { lg: 16 },
-                  alignSelf: { lg: 'flex-start' },
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 1.5,
                 }}
               >
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, width: '100%' }}>
-                  <AppTypography variant="subtitle1" fontWeight={700} gutterBottom>
-                    Leave details
-                  </AppTypography>
-                  <Divider sx={{ mb: 1.5 }} />
-                  {!showBalances ? (
-                    <AppTypography variant="body2" color="text.secondary">
-                      Link your account to an employee to see leave types with allocation, carry-forward, used, and balance per type.
-                    </AppTypography>
-                  ) : types.length === 0 ? (
-                    <AppTypography variant="body2" color="text.secondary">
-                      No active leave types.
-                    </AppTypography>
-                  ) : (
-                    <Stack spacing={1.25} sx={{ maxHeight: { xs: 'none', lg: '38vh' }, overflowY: 'auto' }}>
-                      {types.map((t) => {
-                        const b = balanceByType.get(t.id)
-                        const allocated = b ? num(b.allocatedDays) : null
-                        const carried = b ? num(b.carryForwardedDays) : null
-                        const used = b ? num(b.usedDays) : null
-                        const remaining =
-                          allocated != null && carried != null && used != null
-                            ? allocated + carried - used
-                            : null
-                        return (
-                          <Box
-                            key={t.id}
-                            sx={{
-                              py: 1,
-                              px: 1.25,
-                              borderRadius: 1,
-                              bgcolor: 'action.hover',
-                            }}
-                          >
-                            <AppTypography variant="body2" fontWeight={600}>
-                              {t.name} (Policy {num(t.daysPerYear)} days/yr)
-                            </AppTypography>
-                            <AppTypography variant="caption" color="text.secondary" display="block">
-                              {t.paid ? '' : ' · Unpaid'}
-                            </AppTypography>
-                            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
-                              <Box>
-                                <AppTypography variant="caption" color="text.secondary" display="block">
-                                  Allocated
-                                </AppTypography>
-                                <AppTypography variant="body2" fontWeight={600}>
-                                  {allocated != null ? allocated : '—'}
-                                </AppTypography>
-                              </Box>
-                              <Box>
-                                <AppTypography variant="caption" color="text.secondary" display="block">
-                                  Carry fwd
-                                </AppTypography>
-                                <AppTypography variant="body2" fontWeight={600}>
-                                  {carried != null ? carried : '—'}
-                                </AppTypography>
-                              </Box>
-                              <Box>
-                                <AppTypography variant="caption" color="text.secondary" display="block">
-                                  Used
-                                </AppTypography>
-                                <AppTypography variant="body2" fontWeight={600}>
-                                  {used != null ? used : '—'}
-                                </AppTypography>
-                              </Box>
-                              <Box>
-                                <AppTypography variant="caption" color="text.secondary" display="block">
-                                  Balance
-                                </AppTypography>
-                                <AppTypography
-                                  variant="body2"
-                                  fontWeight={600}
-                                  color={remaining != null && remaining <= 0 ? 'error.main' : 'text.primary'}
-                                >
-                                  {remaining != null ? remaining : '—'}
-                                </AppTypography>
-                              </Box>
-                            </Stack>
-                            {!b && (
-                              <AppTypography variant="caption" color="warning.main" sx={{ mt: 0.75, display: 'block' }}>
-                                No allocation for {year} — ask HR (Leave admin).
-                              </AppTypography>
-                            )}
-                          </Box>
-                        )
-                      })}
-                    </Stack>
-                  )}
-                </Paper>
+                <AppTypography variant="body2" color="text.secondary">
+                  Leave booked this year : <strong>{leaveBookedThisYear}</strong> | Absent : <strong>0</strong>
+                </AppTypography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <InputLabel>Period</InputLabel>
+                    <Select
+                      label="Period"
+                      value={summaryPeriod}
+                      onChange={(e) => setSummaryPeriod(e.target.value as any)}
+                    >
+                      <MenuItem value="THIS_FY">This FY</MenuItem>
+                      <MenuItem value="LAST_FY">Last FY</MenuItem>
+                      <MenuItem value="THIS_YEAR">This Year</MenuItem>
+                      <MenuItem value="LAST_YEAR">Last Year</MenuItem>
+                      <MenuItem value="CUSTOM">Custom</MenuItem>
+                    </Select>
+                  </FormControl>
 
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, width: '100%' }}>
-                  <AppTypography variant="subtitle1" fontWeight={700} gutterBottom>
-                    Company holidays ({year})
-                  </AppTypography>
-                  <Divider sx={{ mb: 1.5 }} />
-                  {holidays.length === 0 ? (
-                    <AppTypography variant="body2" color="text.secondary">
-                      No holidays configured for this year.
+                  {summaryPeriod === 'CUSTOM' && (
+                    <>
+                      <AppTextField
+                        label="From"
+                        type="date"
+                        value={summaryFrom}
+                        onChange={(e) => setSummaryFrom(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                        sx={{ width: 160 }}
+                      />
+                      <AppTextField
+                        label="To"
+                        type="date"
+                        value={summaryTo}
+                        onChange={(e) => setSummaryTo(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                        sx={{ width: 160 }}
+                      />
+                    </>
+                  )}
+
+                  <Paper variant="outlined" sx={{ px: 1.25, py: 0.75, borderRadius: 2 }}>
+                    <AppTypography variant="body2" fontWeight={700}>
+                      {fmt(summaryRange.from)} - {fmt(summaryRange.to)}
                     </AppTypography>
-                  ) : (
-                    <Stack spacing={1.25} sx={{ maxHeight: { xs: 'none', lg: '38vh' }, overflowY: 'auto' }}>
-                      {holidays.map((h) => (
+                  </Paper>
+                  <AppButton variant="contained" onClick={() => setCreateOpen(true)} disabled={!canApply}>
+                    Apply Leave
+                  </AppButton>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                {types.map((t) => {
+                  const b = balanceByType.get(t.id)
+                  const allocated = b ? num(b.allocatedDays) : 0
+                  const carried = b ? num(b.carryForwardedDays) : 0
+                  const used = b ? num(b.usedDays) : 0
+                  const available = allocated + carried - used
+                  const booked = bookedByType.get(t.id) ?? 0
+                  return (
+                    <Paper
+                      key={t.id}
+                      variant="outlined"
+                      sx={{
+                        width: { xs: '100%', sm: 190, md: 210 },
+                        p: 1.5,
+                        borderRadius: 2,
+                      }}
+                    >
+                      <AppTypography variant="caption" color="text.secondary" fontWeight={700}>
+                        {t.code} - {t.name}
+                      </AppTypography>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
                         <Box
-                          key={h.id}
                           sx={{
-                            py: 1,
-                            px: 1.25,
-                            borderRadius: 1,
+                            width: 44,
+                            height: 44,
+                            borderRadius: 2,
                             bgcolor: 'action.hover',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 900,
                           }}
                         >
-                          <AppTypography variant="body2" fontWeight={600}>
-                            {h.name}
+                          {(t.code || 'LT').slice(0, 2).toUpperCase()}
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                        <AppTypography variant="caption" color="text.secondary">
+                          Available
+                        </AppTypography>
+                        <AppTypography variant="caption" fontWeight={800} color="success.main">
+                          {available}
+                        </AppTypography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <AppTypography variant="caption" color="text.secondary">
+                          Booked
+                        </AppTypography>
+                        <AppTypography variant="caption" fontWeight={800}>
+                          {booked}
+                        </AppTypography>
+                      </Box>
+                    </Paper>
+                  )
+                })}
+              </Box>
+
+              <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                <Box sx={{ px: 2, py: 1.25, bgcolor: 'action.hover', display: 'flex', alignItems: 'center' }}>
+                  <AppTypography variant="body2" fontWeight={800} sx={{ minWidth: 260 }}>
+                    Upcoming Leaves &amp; Holidays
+                  </AppTypography>
+                  <FormControl size="small" sx={{ minWidth: 160, ml: 1 }}>
+                    <Select
+                      value={summaryItemFilter}
+                      onChange={(e) => setSummaryItemFilter(e.target.value as any)}
+                      displayEmpty
+                    >
+                      <MenuItem value="ALL">Leaves &amp; Holidays</MenuItem>
+                      <MenuItem value="LEAVE">Leave</MenuItem>
+                      <MenuItem value="HOLIDAY">Holidays</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+                <Box sx={{ p: 2, maxHeight: 260, overflowY: 'auto' }}>
+                  {upcomingItems.length === 0 ? (
+                    <AppTypography variant="body2" color="text.secondary">
+                      No upcoming items.
+                    </AppTypography>
+                  ) : (
+                    <Stack spacing={1}>
+                      {upcomingItems.map((i) => (
+                        <Box
+                          key={i.key}
+                          sx={{
+                            display: 'flex',
+                            gap: 2,
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            borderBottom: 1,
+                            borderColor: 'divider',
+                            pb: 1,
+                          }}
+                        >
+                          <AppTypography variant="body2" color="text.secondary" sx={{ flexShrink: 0, minWidth: 170 }}>
+                            {i.date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' })}
                           </AppTypography>
-                          <AppTypography variant="caption" color="text.secondary">
-                            {new Date(h.holidayDate + 'T12:00:00').toLocaleDateString(undefined, {
-                              weekday: 'short',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
+                          <AppTypography variant="body2" fontWeight={700} sx={{ flex: 1 }}>
+                            {i.label}
                           </AppTypography>
                         </Box>
                       ))}
                     </Stack>
                   )}
-                </Paper>
-              </Stack>
-            </Box>
-          </TabPanel>
+                </Box>
+              </Paper>
 
-          <TabPanel value={mainTab} index={1}>
-            {!showTeamLeave ? (
-              <Alert severity="info">
-                Team leave is visible to HR, administrators, and people managers with direct reports.
-              </Alert>
-            ) : (
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                <AppTypography variant="subtitle1" fontWeight={700} gutterBottom>
-                  Team leave
-                </AppTypography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, alignItems: 'center' }}>
-                  <AppTextField
-                    label="Year"
-                    type="number"
-                    value={calYear}
-                    onChange={(e) => setCalYear(Number(e.target.value))}
-                    sx={{ width: 100 }}
-                    size="small"
-                  />
-                  <FormControl size="small" sx={{ minWidth: 140 }}>
-                    <InputLabel>Month</InputLabel>
-                    <Select label="Month" value={calMonth} onChange={(e) => setCalMonth(Number(e.target.value))}>
-                      {Array.from({ length: 12 }, (_, i) => (
-                        <MenuItem key={i + 1} value={i + 1}>
-                          {new Date(2000, i, 1).toLocaleString(undefined, { month: 'long' })}
-                        </MenuItem>
-                      ))}
+              <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                <Box sx={{ px: 2, py: 1.25, bgcolor: 'action.hover', display: 'flex', alignItems: 'center' }}>
+                  <AppTypography variant="body2" fontWeight={800} sx={{ minWidth: 260 }}>
+                    Past Leaves &amp; Holidays
+                  </AppTypography>
+                  <FormControl size="small" sx={{ minWidth: 160, ml: 1 }}>
+                    <Select
+                      value={summaryItemFilter}
+                      onChange={(e) => setSummaryItemFilter(e.target.value as any)}
+                      displayEmpty
+                    >
+                      <MenuItem value="ALL">Leaves &amp; Holidays</MenuItem>
+                      <MenuItem value="LEAVE">Leave</MenuItem>
+                      <MenuItem value="HOLIDAY">Holidays</MenuItem>
                     </Select>
                   </FormControl>
+                </Box>
+                <Box sx={{ p: 2, maxHeight: 260, overflowY: 'auto' }}>
+                  {pastItems.length === 0 ? (
+                    <AppTypography variant="body2" color="text.secondary">
+                      No past items.
+                    </AppTypography>
+                  ) : (
+                    <Stack spacing={1}>
+                      {pastItems.map((i) => (
+                        <Box
+                          key={i.key}
+                          sx={{
+                            display: 'flex',
+                            gap: 2,
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            borderBottom: 1,
+                            borderColor: 'divider',
+                            pb: 1,
+                          }}
+                        >
+                          <AppTypography variant="body2" color="text.secondary" sx={{ flexShrink: 0, minWidth: 170 }}>
+                            {i.date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' })}
+                          </AppTypography>
+                          <AppTypography variant="body2" fontWeight={700} sx={{ flex: 1 }}>
+                            {i.label}
+                          </AppTypography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+              </Paper>
+            </Box>
+          )}
+
+          {tab === 1 && (
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <Box sx={{ p: 2 }}>
+                <Stack spacing={1.5}>
+                  {types.map((t, idx) => {
+                    const b = balanceByType.get(t.id)
+                    const allocated = b ? num(b.allocatedDays) : 0
+                    const carried = b ? num(b.carryForwardedDays) : 0
+                    const used = b ? num(b.usedDays) : 0
+                    const available = allocated + carried - used
+                    const booked = bookedByType.get(t.id) ?? 0
+                    return (
+                      <Box
+                        key={t.id}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2,
+                          borderRadius: 2,
+                          border: 1,
+                          borderColor: 'divider',
+                          p: 2,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 1.5,
+                            bgcolor: 'action.hover',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 900,
+                          }}
+                        >
+                          {`L${idx + 1}`}
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <AppTypography variant="body2" fontWeight={800} noWrap>
+                            {t.code} - {t.name}
+                          </AppTypography>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                          <Box>
+                            <AppTypography variant="caption" color="text.secondary">
+                              Available
+                            </AppTypography>
+                            <AppTypography variant="body2" fontWeight={800} color="success.main">
+                              {available} days
+                            </AppTypography>
+                          </Box>
+                          <Box>
+                            <AppTypography variant="caption" color="text.secondary">
+                              Booked
+                            </AppTypography>
+                            <AppTypography variant="body2" fontWeight={800}>
+                              {booked} day
+                            </AppTypography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    )
+                  })}
+                </Stack>
+              </Box>
+            </Paper>
+          )}
+
+          {tab === 2 && (
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: 'action.hover',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 1.5,
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <FormControl size="small" sx={{ minWidth: 220 }}>
+                  <InputLabel>Leave</InputLabel>
+                  <Select
+                    label="Leave"
+                    value={requestTypeFilter}
+                    onChange={(e) => setRequestTypeFilter(e.target.value === '' ? '' : Number(e.target.value))}
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {types.map((t) => (
+                      <MenuItem key={t.id} value={t.id}>
+                        {t.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <FormControl size="small" sx={{ minWidth: 160 }}>
+                    <InputLabel>Period</InputLabel>
+                    <Select
+                      label="Period"
+                      value={requestPeriod}
+                      onChange={(e) => setRequestPeriod(e.target.value as any)}
+                    >
+                      <MenuItem value="THIS_YEAR">This Year</MenuItem>
+                      <MenuItem value="LAST_YEAR">Last Year</MenuItem>
+                      <MenuItem value="CUSTOM">Custom</MenuItem>
+                      <MenuItem value="ALL">All</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {requestPeriod === 'CUSTOM' && (
+                    <>
+                      <AppTextField
+                        label="From"
+                        type="date"
+                        value={requestPeriodFrom}
+                        onChange={(e) => setRequestPeriodFrom(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                        sx={{ width: 160 }}
+                      />
+                      <AppTextField
+                        label="To"
+                        type="date"
+                        value={requestPeriodTo}
+                        onChange={(e) => setRequestPeriodTo(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        size="small"
+                        sx={{ width: 160 }}
+                      />
+                    </>
+                  )}
+
+                  {requestPeriod !== 'ALL' && requestPeriod !== 'CUSTOM' && (
+                    <Chip
+                      label={requestPeriod === 'THIS_YEAR' ? 'Period : This Year' : 'Period : Last Year'}
+                      size="small"
+                      onDelete={() => setRequestPeriod('ALL')}
+                      variant="outlined"
+                      sx={{ bgcolor: 'background.paper' }}
+                    />
+                  )}
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <FormControl size="small" sx={{ minWidth: 160 }}>
+                    <InputLabel>All Requests</InputLabel>
+                    <Select
+                      label="All Requests"
+                      value={requestStatusFilter}
+                      onChange={(e) => setRequestStatusFilter(e.target.value as any)}
+                    >
+                      <MenuItem value="ALL">All Requests</MenuItem>
+                      <MenuItem value="PENDING">Requested</MenuItem>
+                      <MenuItem value="APPROVED">Approved</MenuItem>
+                      <MenuItem value="REJECTED">Rejected</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <AppButton variant="contained" onClick={() => setCreateOpen(true)} disabled={!canApply}>
+                    Add Request
+                  </AppButton>
+
+                  <AppButton
+                    variant="text"
+                    onClick={() => {
+                      setRequestTypeFilter('')
+                      setRequestStatusFilter('ALL')
+                      setRequestPeriod('THIS_YEAR')
+                      setRequestPeriodFrom('')
+                      setRequestPeriodTo('')
+                    }}
+                  >
+                    Reset
+                  </AppButton>
+                </Box>
+              </Box>
+
+              <TableContainer>
+                <Table size="small" sx={{ minWidth: 980 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell align="center" sx={{ width: 80 }}>
+                        Status
+                      </TableCell>
+                      <TableCell>Employee Name</TableCell>
+                      <TableCell>Leave type</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Leave period</TableCell>
+                      <TableCell>Days/hours taken</TableCell>
+                      <TableCell>Date of request</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredRequests.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7}>
+                          <AppTypography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                            No requests yet.
+                          </AppTypography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {filteredRequests.map((r) => {
+                      const t = types.find((x) => x.id === r.leaveTypeId)
+                      const isPaid = t?.paid ?? true
+                      return (
+                        <TableRow key={r.id} hover>
+                          <TableCell align="center">{statusDot(r.status)}</TableCell>
+                          <TableCell>{r.employeeName}</TableCell>
+                          <TableCell>{r.leaveTypeName}</TableCell>
+                          <TableCell>{isPaid ? 'Paid' : 'Unpaid'}</TableCell>
+                          <TableCell>
+                            {r.startDate} - {r.endDate}
+                          </TableCell>
+                          <TableCell>{r.totalDays} Day(s)</TableCell>
+                          <TableCell>{r.requestedAt ? new Date(r.requestedAt).toLocaleDateString() : '—'}</TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+
+          {tab === 3 && (
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: 'action.hover',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 1.5,
+                  alignItems: 'center',
+                }}
+              >
+                {isHr ? (
                   <FormControl size="small" sx={{ minWidth: 240 }}>
                     <InputLabel>Employee</InputLabel>
                     <Select
                       label="Employee"
-                      value={teamFilterEmployeeId}
-                      onChange={(e) => setTeamFilterEmployeeId(e.target.value === '' ? '' : Number(e.target.value))}
+                      value={ledgerEmployeeId}
+                      onChange={(e) => setLedgerEmployeeId(e.target.value === '' ? '' : Number(e.target.value))}
                     >
-                      <MenuItem value="">All</MenuItem>
-                      {teamEmployees.map((e) => (
+                      <MenuItem value="">—</MenuItem>
+                      {ledgerEmployees.map((e) => (
                         <MenuItem key={e.id} value={e.id}>
-                          {`${e.firstName} ${e.lastName}`.trim() || e.employeeCode || `#${e.id}`}
+                          {e.firstName} {e.lastName}
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
-                  <AppButton
-                    variant="outlined"
-                    onClick={() => {
-                      const d = new Date()
-                      setCalYear(d.getFullYear())
-                      setCalMonth(d.getMonth() + 1)
-                    }}
-                  >
-                    This month
-                  </AppButton>
-                </Box>
-                {calLoading ? (
+                ) : (
                   <AppTypography variant="body2" color="text.secondary">
-                    Loading…
+                    Showing your leave ledger
+                  </AppTypography>
+                )}
+
+                <AppTextField
+                  label="Year"
+                  type="number"
+                  size="small"
+                  value={ledgerYear}
+                  onChange={(e) => setLedgerYear(Number(e.target.value))}
+                  sx={{ width: 120 }}
+                />
+
+                <FormControl size="small" sx={{ minWidth: 240 }} disabled={ledgerEmployeeId === ''}>
+                  <InputLabel>Leave type</InputLabel>
+                  <Select
+                    label="Leave type"
+                    value={ledgerLeaveTypeId}
+                    onChange={(e) => setLedgerLeaveTypeId(e.target.value === '' ? '' : Number(e.target.value))}
+                  >
+                    <MenuItem value="">All types</MenuItem>
+                    {ledgerLeaveTypes.map((t) => (
+                      <MenuItem key={t.id} value={t.id}>
+                        {t.name} ({t.code})
+                        {!t.active ? ' — inactive' : ''}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Box sx={{ p: 2 }}>
+                {ledgerError && (
+                  <AppTypography color="error" variant="body2" sx={{ mb: 2 }}>
+                    {ledgerError}
+                  </AppTypography>
+                )}
+
+                {ledgerLoading ? (
+                  <LoadingSpinner />
+                ) : ledgerEmployeeId === '' ? (
+                  <AppTypography color="text.secondary">
+                    {isHr
+                      ? 'Select an employee to view the report.'
+                      : 'Link your account to an employee record to view your leave ledger.'}
+                  </AppTypography>
+                ) : ledgerRows.length === 0 ? (
+                  <AppTypography color="text.secondary">No ledger rows for {ledgerYear}.</AppTypography>
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Leave type</TableCell>
+                        <TableCell>Action</TableCell>
+                        <TableCell align="right">Days</TableCell>
+                        <TableCell align="right">Balance</TableCell>
+                        <TableCell>Details</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {ledgerRows.map((r, i) => (
+                        <TableRow key={`${r.entryDate}-${r.leaveTypeCode}-${r.action}-${i}`}>
+                          <TableCell>{r.entryDate}</TableCell>
+                          <TableCell>
+                            {r.leaveTypeCode} — {r.leaveTypeName}
+                          </TableCell>
+                          <TableCell>{ledgerActionLabel(r.action)}</TableCell>
+                          <TableCell align="right">{r.days == null || r.days === '' ? '—' : String(r.days)}</TableCell>
+                          <TableCell align="right">{String(r.balanceAfter)}</TableCell>
+                          <TableCell sx={{ maxWidth: 360 }}>{r.details}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </Box>
+            </Paper>
+          )}
+
+          {tab === 4 && (
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
+                <AppTypography variant="subtitle1" fontWeight={800}>
+                  Holidays ({year})
+                </AppTypography>
+              </Box>
+              <Box sx={{ p: 2 }}>
+                {holidays.length === 0 ? (
+                  <AppTypography variant="body2" color="text.secondary">
+                    No holidays configured for this year.
                   </AppTypography>
                 ) : (
-                  <>
-                    <TableContainer>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Employee</TableCell>
-                            <TableCell>Type</TableCell>
-                            <TableCell>From</TableCell>
-                            <TableCell>To</TableCell>
-                            <TableCell align="right">Days</TableCell>
-                            <TableCell>Status</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {ranges.map((r) => (
-                            <TableRow key={r.requestId} hover>
-                              <TableCell>{r.employeeName}</TableCell>
-                              <TableCell>{r.leaveTypeName}</TableCell>
-                              <TableCell>{r.startDate}</TableCell>
-                              <TableCell>{r.endDate}</TableCell>
-                              <TableCell align="right">{r.totalDays}</TableCell>
-                              <TableCell>{statusChip(r.status)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                    {ranges.length === 0 && (
-                      <AppTypography color="text.secondary" sx={{ py: 1 }}>
-                        No leave in this period.
-                      </AppTypography>
-                    )}
-                  </>
+                  <Stack spacing={1}>
+                    {holidays.map((h) => (
+                      <Box
+                        key={h.id}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 2,
+                          p: 1.5,
+                          borderRadius: 2,
+                          border: 1,
+                          borderColor: 'divider',
+                          bgcolor: 'background.paper',
+                        }}
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <AppTypography variant="body2" fontWeight={800} noWrap>
+                            {h.name}
+                          </AppTypography>
+                        </Box>
+                        <AppTypography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+                          {new Date(String(h.holidayDate) + 'T12:00:00').toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </AppTypography>
+                      </Box>
+                    ))}
+                  </Stack>
                 )}
-              </Paper>
-            )}
-          </TabPanel>
+              </Box>
+            </Paper>
+          )}
         </Box>
       </Paper>
+
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>Add Request</DialogTitle>
+        <DialogContent>
+          {submitError && (
+            <AppTypography color="error" variant="body2" sx={{ mb: 1 }}>
+              {submitError}
+            </AppTypography>
+          )}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-start', pt: 1 }}>
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel>Leave type</InputLabel>
+              <Select
+                label="Leave type"
+                value={leaveTypeId}
+                onChange={(e) => setLeaveTypeId(e.target.value === '' ? '' : Number(e.target.value))}
+                disabled={!canApply}
+              >
+                {types.map((t) => (
+                  <MenuItem key={t.id} value={t.id}>
+                    {t.name} ({t.code})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <AppTextField
+              label="Start"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              disabled={!canApply}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 180 }}
+            />
+            <AppTextField
+              label="End"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              disabled={!canApply}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 180 }}
+            />
+            <AppTextField
+              label="Reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={!canApply}
+              sx={{ minWidth: 240, flex: 1 }}
+            />
+          </Box>
+          {hrPick && (
+            <AppTypography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+              As HR/Admin without an employee profile, create requests via API with <code>employeeId</code>, or use an
+              employee login account.
+            </AppTypography>
+          )}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+            <AppButton variant="outlined" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </AppButton>
+            <AppButton
+              variant="contained"
+              onClick={async () => {
+                await handleApply()
+                setCreateOpen(false)
+              }}
+              disabled={!canApply}
+            >
+              Add Request
+            </AppButton>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   )
 }
